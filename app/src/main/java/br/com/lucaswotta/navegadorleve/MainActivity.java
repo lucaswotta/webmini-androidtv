@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Message;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
@@ -19,10 +20,13 @@ import android.widget.LinearLayout;
 import android.widget.Toast;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import java.io.ByteArrayInputStream;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Locale;
@@ -31,6 +35,11 @@ public class MainActivity extends Activity {
     private static final String HOME = "about:blank";
     private static final String YOUTUBE = "https://m.youtube.com/";
     private static final int MAX_TABS = 8;
+    private static final byte[] EMPTY_BODY = new byte[0];
+    private static final String[] AD_HOSTS = {
+            "doubleclick.net", "googlesyndication.com", "googleadservices.com",
+            "adnxs.com", "amazon-adsystem.com", "taboola.com", "outbrain.com"
+    };
 
     private static class Tab {
         String url;
@@ -52,10 +61,12 @@ public class MainActivity extends Activity {
     private LinearLayout page;
     private View fullscreenView;
     private WebChromeClient.CustomViewCallback fullscreenCallback;
+    private volatile boolean adBlockEnabled;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        adBlockEnabled = getPreferences(MODE_PRIVATE).getBoolean("adBlockEnabled", false);
         root = new FrameLayout(this);
         page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
@@ -158,7 +169,18 @@ public class MainActivity extends Activity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setMediaPlaybackRequiresUserGesture(true);
+        settings.setSupportMultipleWindows(true);
+        settings.setJavaScriptCanOpenWindowsAutomatically(false);
         webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view,
+                                                               WebResourceRequest request) {
+                if (!adBlockEnabled || request.isForMainFrame()
+                        || !isAdHost(request.getUrl().getHost())) return null;
+                return new WebResourceResponse("text/plain", "UTF-8",
+                        new ByteArrayInputStream(EMPTY_BODY));
+            }
+
             @Override
             public void onPageFinished(WebView view, String url) {
                 if (view == webView && !url.equals("about:blank")) {
@@ -183,6 +205,19 @@ public class MainActivity extends Activity {
             }
         });
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onCreateWindow(WebView view, boolean isDialog,
+                                          boolean isUserGesture, Message resultMsg) {
+                if (isUserGesture && !isDialog) {
+                    String url = view.getHitTestResult().getExtra();
+                    if (url != null && (url.startsWith("https://")
+                            || url.startsWith("http://"))) {
+                        view.post(() -> openNewTab(url));
+                    }
+                }
+                return false;
+            }
+
             @Override
             public void onReceivedTitle(WebView view, String title) {
                 if (view == webView && title != null) tab.title = title;
@@ -297,15 +332,33 @@ public class MainActivity extends Activity {
     }
 
     private void showMenu() {
+        String adBlockLabel = adBlockEnabled
+                ? "Bloqueio de anúncios: ligado" : "Bloqueio de anúncios: desligado";
         new AlertDialog.Builder(this).setItems(
-                new String[]{"Avançar", "Recarregar", "Página inicial", "YouTube", "Nova aba"},
+                new String[]{"Avançar", "Recarregar", "Página inicial", "YouTube",
+                        "Nova aba", adBlockLabel},
                 (dialog, which) -> {
                     if (which == 0 && webView.canGoForward()) webView.goForward();
                     if (which == 1) webView.reload();
                     if (which == 2) webView.loadUrl(HOME);
                     if (which == 3) webView.loadUrl(YOUTUBE);
                     if (which == 4) openNewTab(HOME);
+                    if (which == 5) {
+                        adBlockEnabled = !adBlockEnabled;
+                        getPreferences(MODE_PRIVATE).edit()
+                                .putBoolean("adBlockEnabled", adBlockEnabled).apply();
+                        webView.reload();
+                    }
                 }).show();
+    }
+
+    private static boolean isAdHost(String host) {
+        if (host == null) return false;
+        String name = host.toLowerCase(Locale.ROOT);
+        for (String domain : AD_HOSTS) {
+            if (name.equals(domain) || name.endsWith("." + domain)) return true;
+        }
+        return false;
     }
 
     private void openAddress() {
