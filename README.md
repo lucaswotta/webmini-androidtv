@@ -15,7 +15,7 @@ Para distribuição, execute `./gradlew :app:assembleRelease` e assine o APK de 
 
 ## Uso
 
-Digite uma URL ou busca na barra e toque em **Ir**. O botão de abas abre,
+Digite uma URL ou busca na barra e use a tecla **Ir** do teclado. O botão de abas abre,
 alterna e fecha abas. Toque e segure um link para abri-lo em outra aba.
 O menu oferece avançar, recarregar, página inicial vazia e acesso ao YouTube.
 Links HTTP e HTTPS de outros aplicativos podem ser abertos no navegador.
@@ -28,6 +28,9 @@ links podem ser abertos em nova aba pelo toque longo.
 `MainActivity.HOME` define a página inicial. O app usa o provedor WebView do aparelho.
 Cada aba inativa guarda URL e histórico; somente a aba visível mantém uma WebView.
 O limite é de oito abas. A página de uma aba inativa é carregada ao voltar a ela.
+Interface, menus e abas usam Views do Android, sem biblioteca de interface,
+fontes próprias, imagens de fundo ou miniaturas de abas. O tema claro ou escuro
+segue a configuração do aparelho.
 O bloqueio de anúncios começa desligado e filtra requisições para sete domínios
 de anúncios conhecidos, sem extensão, serviço externo ou lista carregada em RAM.
 

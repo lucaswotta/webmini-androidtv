@@ -4,7 +4,7 @@
     <application
         android:icon="@drawable/ic_browser"
         android:label="Navegador Leve"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar"
+        android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"

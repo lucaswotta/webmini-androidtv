@@ -107,8 +107,6 @@ public class MainActivity extends Activity {
             return false;
         });
         toolbar.addView(address, new LinearLayout.LayoutParams(0, -2, 1));
-        Button go = button("Ir", toolbar);
-        go.setOnClickListener(view -> openAddress());
         tabButton = button("1", toolbar);
         tabButton.setContentDescription("Abas");
         tabButton.setOnClickListener(view -> showTabs());
@@ -200,7 +198,7 @@ public class MainActivity extends Activity {
                 webView = null;
                 showActiveTabEmpty();
                 Toast.makeText(MainActivity.this,
-                        "A página parou. Toque em Ir para recarregar.", Toast.LENGTH_LONG).show();
+                        "A página parou. Digite a URL para recarregar.", Toast.LENGTH_LONG).show();
                 return true;
             }
         });
