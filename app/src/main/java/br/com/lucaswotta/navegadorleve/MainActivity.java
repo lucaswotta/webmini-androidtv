@@ -18,6 +18,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -604,6 +605,11 @@ public class MainActivity extends Activity {
     public boolean onGenericMotionEvent(MotionEvent event) {
         if (tvMode && event.getAction() == MotionEvent.ACTION_MOVE
                 && (event.getSource() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) {
+            if (focusedEditor() != null || keyboardAcceptingText()) {
+                analogX = 0;
+                analogY = 0;
+                return true;
+            }
             float x = event.getAxisValue(MotionEvent.AXIS_X);
             float y = event.getAxisValue(MotionEvent.AXIS_Y);
             analogX = Math.abs(x) > 0.2f ? x : 0;
@@ -640,6 +646,23 @@ public class MainActivity extends Activity {
             if (event.getAction() == KeyEvent.ACTION_UP) navigateBack();
             return true;
         }
+        EditText editor = tvMode ? focusedEditor() : null;
+        if (tvMode && editor == null && keyboardAcceptingText()) {
+            return super.dispatchKeyEvent(event);
+        }
+        if (editor != null) {
+            digitalX = 0;
+            digitalY = 0;
+            if (cursorView != null) cursorView.removeCallbacks(cursorTick);
+            cursorTickScheduled = false;
+            int key = event.getKeyCode();
+            if (key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                if (event.getAction() == KeyEvent.ACTION_DOWN) moveTextCaret(editor,
+                        key == KeyEvent.KEYCODE_DPAD_LEFT ? -1 : 1);
+                return true;
+            }
+            return super.dispatchKeyEvent(event);
+        }
         if (tvMode) {
             int key = event.getKeyCode();
             if (key == KeyEvent.KEYCODE_DPAD_UP || key == KeyEvent.KEYCODE_DPAD_DOWN
@@ -672,6 +695,31 @@ public class MainActivity extends Activity {
             }
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    private EditText focusedEditor() {
+        if (address != null && address.isFocused()) return address;
+        if (homeSearch != null && homeSearch.isFocused()) return homeSearch;
+        return null;
+    }
+
+    private boolean keyboardAcceptingText() {
+        InputMethodManager inputMethod = (InputMethodManager)
+                getSystemService(INPUT_METHOD_SERVICE);
+        return inputMethod != null && inputMethod.isAcceptingText();
+    }
+
+    private void moveTextCaret(EditText editor, int direction) {
+        int start = editor.getSelectionStart();
+        int end = editor.getSelectionEnd();
+        if (start < 0 || end < 0) return;
+        if (start != end) {
+            editor.setSelection(direction < 0 ? Math.min(start, end) : Math.max(start, end));
+            return;
+        }
+        if ((direction < 0 && start == 0) || (direction > 0 && start == editor.length())) return;
+        int next = Character.offsetByCodePoints(editor.getText(), start, direction);
+        editor.setSelection(next);
     }
 
     private void showMenu() {
