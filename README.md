@@ -5,11 +5,15 @@ Navegador Android de uma aba baseado no Android System WebView.
 ## Requisitos
 
 - Android 6.0 ou superior com Android System WebView instalado, em celular ou TV.
-- JDK 17 e Android SDK 36 para compilar. O projeto inclui Gradle Wrapper 8.11.1.
+- JDK 17 ou superior, Android SDK 36, NDK 27.2.12479018, Rust e `cargo-ndk`.
+- O projeto usa Gradle Wrapper 9.1.0 e compila o filtro Rust para ARMv7, ARM64 e x86_64.
 
 ## Instalação
 
 Configure `ANDROID_HOME` para o Android SDK e execute `./gradlew :app:assembleDebug`.
+Instale o alvo Rust correspondente (`rustup target add aarch64-linux-android
+armv7-linux-androideabi x86_64-linux-android`) e `cargo-ndk` (`cargo install
+cargo-ndk --locked`) antes de compilar.
 O APK instalável é gerado em `app/build/outputs/apk/debug/app-debug.apk`.
 Para distribuição, execute `./gradlew :app:assembleRelease` e assine o APK de release.
 
@@ -21,9 +25,17 @@ e opções. Pesquisas na barra de endereço e na tela inicial abrem resultados d
 Google. Tocar na estrela salva ou remove a página atual dos favoritos.
 
 O menu `⋮` oferece avançar, bloqueio de pop-ups, bloqueio de anúncios e Sobre.
-As escolhas de bloqueio são salvas. O item Sobre abre
+Pop-ups com destino identificável pedem confirmação por padrão; desativar o
+bloqueio permite abrir links com gesto na aba atual. Pop-ups sem destino e
+pop-ups automáticos são bloqueados. O item Sobre abre
 `https://github.com/lucaswotta` na mesma WebView. Links HTTP e HTTPS de outros
 aplicativos podem ser abertos no navegador.
+
+Downloads exibem confirmação com nome, origem e tipo antes de iniciar. O
+arquivo vai para Downloads e não é aberto automaticamente. Sites não recebem
+permissões de localização, câmera, microfone ou seletor de arquivos. O Safe
+Browsing do Android WebView é ativado em versões compatíveis; navegações HTTP e
+conteúdo misto HTTP/HTTPS são sinalizados ou bloqueados.
 
 Na TV, o ponteiro fica ativo sobre a página e a interface; direcional ou
 analógico esquerdo movem, OK ou botão A clicam. Ele some após 2,5 segundos sem
@@ -52,9 +64,28 @@ com Android 12 e WebView 155.0.8059.43, o build anterior com Google após uma
 abertura limpa mediu 74.548 KiB PSS no app e 84.296 KiB no renderizador:
 158.844 KiB no total (155,1 MiB), sem vídeo.
 
-## Limitações
+Em 23/10/2026, com EasyList e EasyPrivacy carregados e ainda na tela inicial,
+o TiVo mediu 51.553 KiB PSS no processo do app (50,3 MiB). Esse valor não
+inclui uma WebView nem o processo renderizador.
 
-O app não oferece downloads, seletor de arquivos ou permissões de câmera e
-microfone. O filtro de domínios não remove espaços de anúncios, não cobre todos
-os redirecionamentos ou requisições de Service Workers e não bloqueia anúncios
-servidos pelo mesmo domínio do conteúdo.
+## Bloqueio de anúncios e rastreadores
+
+O bloqueio de anúncios e rastreadores vem ativado por padrão. O WebMini usa
+`adblock-rust` com EasyList e EasyPrivacy.
+O motor `adblock-rust` 0.13.3 está sob MPL-2.0; a licença está em
+`app/src/main/assets/MPL-2.0.txt` e o código fonte pode ser obtido em
+`https://github.com/brave/adblock-rust`.
+As listas são baixadas por HTTPS, guardadas no armazenamento privado do app e
+atualizadas ao iniciar ou ativar o bloqueio quando têm mais de sete dias. Sem conexão ou antes
+do primeiro download, ficam ativos apenas os domínios de contingência.
+
+O filtro atua nas requisições de rede vistas pelo Android WebView e por Service
+Workers a partir do Android 7; não injeta scripts nem aplica filtros
+cosméticos. O callback do WebView não cobre todos os redirecionamentos, e
+anúncios servidos pela mesma origem do conteúdo podem continuar. O bloqueio de
+rede pode ser detectado pelo site; não existe garantia de que seja invisível.
+
+O motor e as listas consomem memória quando ativados. O tamanho do APK universal
+de depuração é maior porque contém bibliotecas para três arquiteturas. O consumo
+real depende do WebView, da lista carregada, da página e do dispositivo; a meta
+de 15 MiB para uma página complexa não pode ser garantida.

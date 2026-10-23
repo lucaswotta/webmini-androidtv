@@ -29,6 +29,8 @@ import android.widget.LinearLayout;
 import android.widget.Toast;
 import android.widget.TextView;
 import android.webkit.RenderProcessGoneDetail;
+import android.webkit.ServiceWorkerClient;
+import android.webkit.ServiceWorkerController;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -42,16 +44,36 @@ import android.text.InputType;
 import android.widget.ScrollView;
 import org.json.JSONArray;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.ByteArrayInputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.net.URLEncoder;
 import java.util.Locale;
 import java.util.ArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends Activity {
+    static {
+        System.loadLibrary("webmini_adblock");
+    }
+
     private static final String HOME = "https://www.google.com/";
     private static final String ABOUT = "https://github.com/lucaswotta";
     private static final String BLANK = "about:blank";
     private static final String FAVORITES_KEY = "favorites";
+    private static final String EASYLIST_URL = "https://easylist.to/easylist/easylist.txt";
+    private static final String EASYPRIVACY_URL = "https://easylist.to/easylist/easyprivacy.txt";
+    private static final String[] FILTER_LIST_FILES = {"easylist.txt", "easyprivacy.txt"};
+    private static final long FILTER_LIST_MAX_AGE = 7L * 24 * 60 * 60 * 1000;
+    private static final int MAX_FILTER_LIST_BYTES = 5 * 1024 * 1024;
     private static final byte[] EMPTY_BODY = new byte[0];
     private static final String[] AD_HOSTS = {
             "doubleclick.net", "googlesyndication.com", "googleadservices.com",
@@ -103,7 +125,11 @@ public class MainActivity extends Activity {
     private int digitalY;
     private int digitalSpeed = 6;
     private boolean cursorTickScheduled;
-    private String currentUrl = HOME;
+    private volatile String currentUrl = HOME;
+    private volatile boolean nativeFiltersReady;
+    private final ExecutorService adBlockExecutor = Executors.newSingleThreadExecutor();
+    private boolean adBlockInitializationRunning;
+    private boolean adBlockReloadRequested;
     private final Runnable hideLoading = () -> loadingLine.setVisibility(View.INVISIBLE);
     private final Runnable cursorTick = new Runnable() {
         @Override
@@ -118,16 +144,31 @@ public class MainActivity extends Activity {
         }
     };
 
+    private static native void nativeBeginFilterLists();
+    private static native boolean nativeAddFilterList(String listText);
+    private static native boolean nativeFinishFilterLists();
+    private static native void nativeClearFilters();
+    private static native boolean nativeShouldBlock(String url, String pageUrl,
+            String resourceType, String method);
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         tvMode = getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
         if (tvMode) setTheme(R.style.TvTheme);
         super.onCreate(savedInstanceState);
-        adBlockEnabled = getPreferences(MODE_PRIVATE).getBoolean("adBlockEnabled", false);
+        adBlockEnabled = getPreferences(MODE_PRIVATE).getBoolean("adBlockEnabled", true);
         popupsBlocked = getPreferences(MODE_PRIVATE).getBoolean("popupsBlocked", true);
         loadFavorites();
 
         root = new FrameLayout(this);
+        if (Build.VERSION.SDK_INT >= 24) {
+            ServiceWorkerController.getInstance().setServiceWorkerClient(new ServiceWorkerClient() {
+                @Override
+                public WebResourceResponse shouldInterceptRequest(WebResourceRequest request) {
+                    return filterNetworkRequest(request);
+                }
+            });
+        }
         page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
         if (tvMode) {
@@ -228,6 +269,7 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 33) {
             getOnBackInvokedDispatcher().registerOnBackInvokedCallback(0, this::navigateBack);
         }
+        if (adBlockEnabled) initializeAdblock();
     }
 
     private Button button(String label, LinearLayout parent) {
@@ -473,10 +515,7 @@ public class MainActivity extends Activity {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view,
                                                                WebResourceRequest request) {
-                if (!adBlockEnabled || request.isForMainFrame()
-                        || !isAdHost(request.getUrl().getHost())) return null;
-                return new WebResourceResponse("text/plain", "UTF-8",
-                        new ByteArrayInputStream(EMPTY_BODY));
+                return filterNetworkRequest(request);
             }
 
             @Override
@@ -509,6 +548,7 @@ public class MainActivity extends Activity {
             public void onPageStarted(WebView view, String pageUrl,
                                       android.graphics.Bitmap favicon) {
                 if (view == webView) {
+                    currentUrl = pageUrl;
                     if (loadingLine.getVisibility() != View.VISIBLE) showLoading();
                 }
                 if (view == webView && tvMode) view.requestFocus();
@@ -801,7 +841,7 @@ public class MainActivity extends Activity {
         String popupLabel = popupsBlocked
                 ? "Bloqueio Pop-Up: ligado" : "Bloqueio Pop-Up: desligado";
         String adBlockLabel = adBlockEnabled
-                ? "Bloqueio de anúncios: ligado" : "Bloqueio de anúncios: desligado";
+                ? "Anúncios e rastreadores: ligado" : "Anúncios e rastreadores: desligado";
         String[] entries = {"Avançar", popupLabel, adBlockLabel, "Sobre"};
         showChoices(entries, which -> {
             if (which == 0 && webView != null && webView.canGoForward()) webView.goForward();
@@ -815,6 +855,12 @@ public class MainActivity extends Activity {
                 adBlockEnabled = !adBlockEnabled;
                 getPreferences(MODE_PRIVATE).edit()
                         .putBoolean("adBlockEnabled", adBlockEnabled).apply();
+                if (adBlockEnabled) {
+                    initializeAdblock();
+                } else {
+                    nativeFiltersReady = false;
+                    adBlockExecutor.execute(MainActivity::nativeClearFilters);
+                }
                 if (webView != null) reloadPage();
             }
             if (which == 3) {
@@ -826,6 +872,207 @@ public class MainActivity extends Activity {
     private void applyPopupPolicy(WebSettings settings) {
         settings.setSupportMultipleWindows(true);
         settings.setJavaScriptCanOpenWindowsAutomatically(false);
+    }
+
+    private String requestType(WebResourceRequest request) {
+        if (request.isForMainFrame()) return "document";
+        java.util.Map<String, String> headers = request.getRequestHeaders();
+        String destination = headers.get("Sec-Fetch-Dest");
+        if (destination == null) destination = headers.get("sec-fetch-dest");
+        if (destination != null) {
+            switch (destination.toLowerCase(Locale.ROOT)) {
+                case "script": return "script";
+                case "style": return "stylesheet";
+                case "image": return "image";
+                case "font": return "font";
+                case "audio":
+                case "video": return "media";
+                case "iframe":
+                case "frame": return "subdocument";
+                case "document": return "document";
+                default: break;
+            }
+        }
+        String accept = headers.get("Accept");
+        if (accept == null) accept = headers.get("accept");
+        String value = accept == null ? "" : accept.toLowerCase(Locale.ROOT);
+        if (value.contains("text/css")) return "stylesheet";
+        if (value.contains("javascript")) return "script";
+        if (value.contains("image/")) return "image";
+        if (value.contains("font/")) return "font";
+        if (value.contains("audio/") || value.contains("video/")) return "media";
+        if (value.contains("text/html")) return "subdocument";
+        if (value.contains("application/json")) return "xmlhttprequest";
+        String requestPath = request.getUrl().getPath();
+        String path = requestPath == null ? "" : requestPath.toLowerCase(Locale.ROOT);
+        if (path.endsWith(".js") || path.endsWith(".mjs")) return "script";
+        if (path.endsWith(".css")) return "stylesheet";
+        if (path.endsWith(".woff") || path.endsWith(".woff2") || path.endsWith(".ttf")
+                || path.endsWith(".otf") || path.endsWith(".eot")) return "font";
+        if (path.endsWith(".png") || path.endsWith(".jpg") || path.endsWith(".jpeg")
+                || path.endsWith(".gif") || path.endsWith(".webp") || path.endsWith(".svg")
+                || path.endsWith(".avif") || path.endsWith(".ico")) return "image";
+        if (path.endsWith(".mp4") || path.endsWith(".m3u8") || path.endsWith(".mpd")
+                || path.endsWith(".webm") || path.endsWith(".mp3") || path.endsWith(".m4a")
+                || path.endsWith(".aac") || path.endsWith(".ogg")) return "media";
+        return "other";
+    }
+
+    private WebResourceResponse filterNetworkRequest(WebResourceRequest request) {
+        if (!adBlockEnabled || request.isForMainFrame()) return null;
+        String resourceUrl = request.getUrl().toString();
+        boolean blocked = nativeFiltersReady && nativeShouldBlock(resourceUrl, currentUrl,
+                requestType(request), request.getMethod());
+        if (!blocked && (!nativeFiltersReady || !adBlockEnabled)) {
+            blocked = isAdHost(request.getUrl().getHost());
+        }
+        if (!blocked) return null;
+        return new WebResourceResponse("text/plain", "UTF-8",
+                new ByteArrayInputStream(EMPTY_BODY));
+    }
+
+    private void initializeAdblock() {
+        synchronized (this) {
+            if (!adBlockEnabled) return;
+            if (adBlockInitializationRunning) {
+                adBlockReloadRequested = true;
+                return;
+            }
+            adBlockInitializationRunning = true;
+        }
+        adBlockExecutor.execute(() -> {
+            try {
+                String[] lists = readCachedFilterLists();
+                boolean hasCachedLists = lists[0] != null || lists[1] != null;
+                if (hasCachedLists && adBlockEnabled) installFilterLists(lists);
+                long lastUpdate = getPreferences(MODE_PRIVATE)
+                        .getLong("filterListsUpdatedAt", 0);
+                if (lists[0] == null || lists[1] == null || !hasCachedLists
+                        || System.currentTimeMillis() - lastUpdate >= FILTER_LIST_MAX_AGE) {
+                    updateFilterLists(lists);
+                }
+            } finally {
+                boolean retry;
+                synchronized (this) {
+                    adBlockInitializationRunning = false;
+                    retry = adBlockReloadRequested && adBlockEnabled;
+                    adBlockReloadRequested = false;
+                }
+                if (retry) initializeAdblock();
+            }
+        });
+    }
+
+    private String[] readCachedFilterLists() {
+        String[] lists = new String[FILTER_LIST_FILES.length];
+        for (int i = 0; i < FILTER_LIST_FILES.length; i++) {
+            File file = new File(getFilesDir(), FILTER_LIST_FILES[i]);
+            if (!file.isFile() || file.length() <= 0 || file.length() > MAX_FILTER_LIST_BYTES) continue;
+            try (InputStream input = new FileInputStream(file);
+                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                copyLimited(input, output);
+                lists[i] = output.toString(StandardCharsets.UTF_8.name());
+                if (!isValidFilterList(lists[i])) lists[i] = null;
+            } catch (IOException ignored) {
+                lists[i] = null;
+            }
+        }
+        return lists;
+    }
+
+    private void updateFilterLists(String[] cachedLists) {
+        String[] urls = {EASYLIST_URL, EASYPRIVACY_URL};
+        boolean updated = false;
+        for (int i = 0; i < urls.length; i++) {
+            if (!adBlockEnabled) return;
+            String downloaded = downloadFilterList(urls[i]);
+            if (downloaded == null) continue;
+            try {
+                saveFilterList(i, downloaded);
+                cachedLists[i] = downloaded;
+                updated = true;
+            } catch (IOException ignored) {
+                // Keep using the in-memory copy if storage is unavailable.
+            }
+        }
+        if (updated && adBlockEnabled) {
+            installFilterLists(cachedLists);
+            getPreferences(MODE_PRIVATE).edit()
+                    .putLong("filterListsUpdatedAt", System.currentTimeMillis()).apply();
+        }
+    }
+
+    private String downloadFilterList(String url) {
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(url).openConnection();
+            connection.setConnectTimeout(12000);
+            connection.setReadTimeout(20000);
+            connection.setInstanceFollowRedirects(true);
+            connection.setRequestProperty("User-Agent", "WebMini/1.0 filter-list updater");
+            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK
+                    || !"https".equalsIgnoreCase(connection.getURL().getProtocol())) return null;
+            try (InputStream input = connection.getInputStream();
+                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                copyLimited(input, output);
+                String contents = output.toString(StandardCharsets.UTF_8.name());
+                return isValidFilterList(contents) ? contents : null;
+            }
+        } catch (IOException ignored) {
+            return null;
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    private void copyLimited(InputStream input, ByteArrayOutputStream output) throws IOException {
+        byte[] buffer = new byte[8192];
+        int total = 0;
+        int count;
+        while ((count = input.read(buffer)) != -1) {
+            total += count;
+            if (total > MAX_FILTER_LIST_BYTES) throw new IOException("Filter list is too large");
+            output.write(buffer, 0, count);
+        }
+    }
+
+    private void saveFilterList(int index, String contents) throws IOException {
+        File destination = new File(getFilesDir(), FILTER_LIST_FILES[index]);
+        File temporary = new File(getFilesDir(), FILTER_LIST_FILES[index] + ".tmp");
+        byte[] bytes = contents.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length > MAX_FILTER_LIST_BYTES) throw new IOException("Filter list is too large");
+        try (FileOutputStream output = new FileOutputStream(temporary)) {
+            output.write(bytes);
+        }
+        if (!temporary.renameTo(destination)) {
+            temporary.delete();
+            throw new IOException("Could not replace cached filter list");
+        }
+    }
+
+    private boolean isValidFilterList(String contents) {
+        String trimmed = contents.trim();
+        return trimmed.length() >= 256 && trimmed.startsWith("[Adblock Plus ");
+    }
+
+    private void installFilterLists(String[] lists) {
+        boolean hasList = false;
+        for (String list : lists) hasList |= list != null && !list.isEmpty();
+        if (!hasList || !adBlockEnabled) return;
+        nativeClearFilters();
+        nativeFiltersReady = false;
+        nativeBeginFilterLists();
+        boolean added = false;
+        for (String list : lists) {
+            if (list != null && !list.isEmpty()) {
+                if (!nativeAddFilterList(list)) {
+                    nativeClearFilters();
+                    return;
+                }
+                added = true;
+            }
+        }
+        nativeFiltersReady = added && adBlockEnabled && nativeFinishFilterLists();
     }
 
     private void showConfirmation(String title, String message, String acceptLabel,
@@ -842,6 +1089,11 @@ public class MainActivity extends Activity {
     private void confirmDownload(String url, String userAgent,
                                  String contentDisposition, String mimeType) {
         Uri uri = Uri.parse(url);
+        if (!"http".equalsIgnoreCase(uri.getScheme())
+                && !"https".equalsIgnoreCase(uri.getScheme())) {
+            Toast.makeText(this, "Download bloqueado: protocolo não suportado", Toast.LENGTH_LONG).show();
+            return;
+        }
         String fileName = URLUtil.guessFileName(url, contentDisposition, mimeType);
         String host = uri.getHost() == null ? "endereço desconhecido" : uri.getHost();
         String warning = "http".equalsIgnoreCase(uri.getScheme())
@@ -1037,6 +1289,13 @@ public class MainActivity extends Activity {
             webView.destroy();
             webView = null;
         }
+        adBlockEnabled = false;
+        nativeFiltersReady = false;
+        if (Build.VERSION.SDK_INT >= 24) {
+            ServiceWorkerController.getInstance().setServiceWorkerClient(null);
+        }
+        adBlockExecutor.execute(MainActivity::nativeClearFilters);
+        adBlockExecutor.shutdown();
         super.onDestroy();
     }
 }

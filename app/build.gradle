@@ -14,11 +14,44 @@ android {
         versionName '0.2.0'
     }
 
+    sourceSets {
+        main {
+            jniLibs.srcDir(layout.buildDirectory.dir('generated/rust/jniLibs').get().asFile)
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled true
             shrinkResources true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+}
+
+def nativeLibraryOutput = layout.buildDirectory.dir('generated/rust/jniLibs')
+def sdkProperties = new Properties()
+def sdkPropertiesFile = rootProject.file('local.properties')
+if (sdkPropertiesFile.isFile()) {
+    sdkPropertiesFile.withInputStream { sdkProperties.load(it) }
+}
+def androidSdkPath = providers.environmentVariable('ANDROID_HOME')
+        .orElse(providers.environmentVariable('ANDROID_SDK_ROOT'))
+        .orElse(sdkProperties.getProperty('sdk.dir', '')).get()
+
+tasks.register('buildNativeAdblock', Exec) {
+    workingDir rootProject.file('native/adblock')
+    inputs.files(fileTree('../native/adblock/src'), rootProject.file('native/adblock/Cargo.toml'),
+            rootProject.file('native/adblock/Cargo.lock'))
+    outputs.dir(nativeLibraryOutput)
+    environment 'ANDROID_HOME', androidSdkPath
+    environment 'PATH', new File(System.getProperty('user.home'), '.cargo/bin').absolutePath + File.pathSeparator + System.getenv('PATH')
+    commandLine 'cargo', 'ndk',
+            '-t', 'arm64-v8a', '-t', 'armeabi-v7a', '-t', 'x86_64',
+            '-o', nativeLibraryOutput.get().asFile.absolutePath,
+            'build', '--release', '--locked'
+}
+
+tasks.named('preBuild').configure {
+    dependsOn tasks.named('buildNativeAdblock')
 }
