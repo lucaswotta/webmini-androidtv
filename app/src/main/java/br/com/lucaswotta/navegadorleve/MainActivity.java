@@ -25,6 +25,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 import android.widget.TextView;
@@ -340,6 +341,13 @@ public class MainActivity extends Activity {
         landing.setGravity(Gravity.CENTER_HORIZONTAL);
         landing.setPadding(dp(20), dp(28), dp(20), dp(24));
         scroll.addView(landing, new ScrollView.LayoutParams(-1, -2));
+
+        ImageView logo = new ImageView(this);
+        logo.setImageResource(R.drawable.ic_browser);
+        logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        LinearLayout.LayoutParams logoSize = new LinearLayout.LayoutParams(dp(92), dp(92));
+        logoSize.bottomMargin = dp(8);
+        landing.addView(logo, logoSize);
 
         TextView title = new TextView(this);
         title.setText("WebMini");
