@@ -2,6 +2,8 @@ package br.com.lucaswotta.navegadorleve;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.DownloadManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -10,6 +12,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Message;
 import android.os.SystemClock;
+import android.os.Environment;
 import android.view.Gravity;
 import android.view.InputDevice;
 import android.view.KeyEvent;
@@ -33,6 +36,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.CookieManager;
+import android.webkit.URLUtil;
 import android.graphics.Typeface;
 import android.text.InputType;
 import android.widget.ScrollView;
@@ -85,6 +89,12 @@ public class MainActivity extends Activity {
     private WebChromeClient.CustomViewCallback fullscreenCallback;
     private volatile boolean adBlockEnabled;
     private boolean popupsBlocked;
+    private String pendingDownloadUrl;
+    private String pendingDownloadUserAgent;
+    private String pendingDownloadReferer;
+    private String pendingDownloadName;
+    private String pendingDownloadMime;
+    private String approvedHttpUrl;
     private float cursorX = -1;
     private float cursorY = -1;
     private float analogX;
@@ -454,6 +464,10 @@ public class MainActivity extends Activity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setMediaPlaybackRequiresUserGesture(true);
+        settings.setAllowFileAccess(false);
+        settings.setAllowContentAccess(false);
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        if (Build.VERSION.SDK_INT >= 26) settings.setSafeBrowsingEnabled(true);
         applyPopupPolicy(settings);
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -463,6 +477,32 @@ public class MainActivity extends Activity {
                         || !isAdHost(request.getUrl().getHost())) return null;
                 return new WebResourceResponse("text/plain", "UTF-8",
                         new ByteArrayInputStream(EMPTY_BODY));
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                if (!request.isForMainFrame()) return false;
+                Uri destination = request.getUrl();
+                String scheme = destination.getScheme();
+                if ("http".equalsIgnoreCase(scheme)) {
+                    if (destination.toString().equals(approvedHttpUrl)) {
+                        approvedHttpUrl = null;
+                        return false;
+                    }
+                    showConfirmation("Conexão sem criptografia",
+                            "Este site usa HTTP. O conteúdo e os dados enviados podem ser vistos na rede.\n\n"
+                                    + destination.getHost(), "Continuar", "Cancelar",
+                            () -> {
+                                approvedHttpUrl = destination.toString();
+                                view.loadUrl(destination.toString());
+                            });
+                    return true;
+                }
+                if (!"https".equalsIgnoreCase(scheme)) {
+                    Toast.makeText(MainActivity.this, "Navegação bloqueada", Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+                return false;
             }
 
             @Override
@@ -515,14 +555,47 @@ public class MainActivity extends Activity {
             @Override
             public boolean onCreateWindow(WebView view, boolean isDialog,
                                           boolean isUserGesture, Message resultMsg) {
-                if (isUserGesture && !isDialog) {
-                    String link = view.getHitTestResult().getExtra();
-                    if (link != null && (link.startsWith("https://")
-                            || link.startsWith("http://"))) {
-                        view.post(() -> webView.loadUrl(link));
-                    }
+                String link = isUserGesture && !isDialog
+                        ? view.getHitTestResult().getExtra() : null;
+                if (link != null && (link.startsWith("https://") || link.startsWith("http://"))) {
+                    view.post(() -> {
+                        Runnable openLink = () -> {
+                            if (webView != null) webView.loadUrl(link);
+                        };
+                        if (popupsBlocked) {
+                            showConfirmation("Abrir outra página?",
+                                    "O site quer abrir este endereço na aba atual:\n\n"
+                                            + Uri.parse(link).getHost(),
+                                    "Abrir", "Bloquear", openLink);
+                        } else {
+                            openLink.run();
+                        }
+                    });
+                } else {
+                    view.post(() -> Toast.makeText(MainActivity.this,
+                            "Pop-up bloqueado: destino não identificado", Toast.LENGTH_LONG).show());
                 }
                 return false;
+            }
+
+            @Override
+            public void onPermissionRequest(android.webkit.PermissionRequest request) {
+                request.deny();
+            }
+
+            @Override
+            public void onGeolocationPermissionsShowPrompt(String origin,
+                    android.webkit.GeolocationPermissions.Callback callback) {
+                callback.invoke(origin, false, false);
+            }
+
+            @Override
+            public boolean onShowFileChooser(WebView view,
+                    android.webkit.ValueCallback<Uri[]> callback,
+                    android.webkit.WebChromeClient.FileChooserParams params) {
+                callback.onReceiveValue(null);
+                Toast.makeText(MainActivity.this, "Acesso a arquivos bloqueado", Toast.LENGTH_SHORT).show();
+                return true;
             }
 
             @Override
@@ -543,6 +616,8 @@ public class MainActivity extends Activity {
                 hideFullscreen();
             }
         });
+        webView.setDownloadListener((downloadUrl, userAgent, contentDisposition, mimeType, contentLength) ->
+                confirmDownload(downloadUrl, userAgent, contentDisposition, mimeType));
         content.addView(webView, new FrameLayout.LayoutParams(-1, -1));
         homePage = false;
         address.setText(url.equals(BLANK) ? currentUrl : url);
@@ -749,8 +824,74 @@ public class MainActivity extends Activity {
     }
 
     private void applyPopupPolicy(WebSettings settings) {
-        settings.setSupportMultipleWindows(popupsBlocked);
-        settings.setJavaScriptCanOpenWindowsAutomatically(!popupsBlocked);
+        settings.setSupportMultipleWindows(true);
+        settings.setJavaScriptCanOpenWindowsAutomatically(false);
+    }
+
+    private void showConfirmation(String title, String message, String acceptLabel,
+                                  String cancelLabel, Runnable onAccept) {
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton(acceptLabel, (dialog, which) -> onAccept.run())
+                .setNegativeButton(cancelLabel, null)
+                .setCancelable(true)
+                .show();
+    }
+
+    private void confirmDownload(String url, String userAgent,
+                                 String contentDisposition, String mimeType) {
+        Uri uri = Uri.parse(url);
+        String fileName = URLUtil.guessFileName(url, contentDisposition, mimeType);
+        String host = uri.getHost() == null ? "endereço desconhecido" : uri.getHost();
+        String warning = "http".equalsIgnoreCase(uri.getScheme())
+                ? "\n\nA conexão não é criptografada." : "";
+        showConfirmation("Permitir download?",
+                fileName + "\n" + host + "\n" + (mimeType == null ? "Tipo desconhecido" : mimeType)
+                        + warning + "\n\nO arquivo será salvo em Downloads e não será aberto automaticamente.",
+                "Baixar", "Cancelar", () -> {
+                    pendingDownloadUrl = url;
+                    pendingDownloadUserAgent = userAgent;
+                    pendingDownloadReferer = webView == null ? null : webView.getUrl();
+                    pendingDownloadName = fileName;
+                    pendingDownloadMime = mimeType;
+                    startConfirmedDownload();
+                });
+    }
+
+    private void startConfirmedDownload() {
+        if (pendingDownloadUrl == null) return;
+        if (Build.VERSION.SDK_INT <= 28 && checkSelfPermission(
+                android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, 41);
+            return;
+        }
+        DownloadManager manager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+        DownloadManager.Request request = new DownloadManager.Request(Uri.parse(pendingDownloadUrl));
+        request.setTitle(pendingDownloadName);
+        request.setDescription("Download solicitado no WebMini");
+        request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, pendingDownloadName);
+        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+        if (pendingDownloadMime != null) request.setMimeType(pendingDownloadMime);
+        if (pendingDownloadUserAgent != null) request.addRequestHeader("User-Agent", pendingDownloadUserAgent);
+        if (pendingDownloadReferer != null) request.addRequestHeader("Referer", pendingDownloadReferer);
+        String cookies = CookieManager.getInstance().getCookie(pendingDownloadUrl);
+        if (cookies != null) request.addRequestHeader("Cookie", cookies);
+        manager.enqueue(request);
+        Toast.makeText(this, "Download iniciado", Toast.LENGTH_SHORT).show();
+        pendingDownloadUrl = null;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 41 && grantResults.length > 0
+                && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            startConfirmedDownload();
+        } else if (requestCode == 41) {
+            pendingDownloadUrl = null;
+            Toast.makeText(this, "Permissão negada; download cancelado", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void showChoices(String[] entries, Choice choice) {
