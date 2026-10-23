@@ -1,0 +1,24 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'br.com.lucaswotta.navegadorleve'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'br.com.lucaswotta.navegadorleve'
+        minSdk 23
+        targetSdk 34
+        versionCode 1
+        versionName '0.1.0'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+        }
+    }
+}
