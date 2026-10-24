@@ -1,0 +1,36 @@
+name: Bug report
+description: Something does not work as described.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: symptom
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open https://...
+        2. Press ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Device, system and WebMini version
+      placeholder: TiVo Stream 4K, Android TV 12, WebMini 0.2.0
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots or logs
