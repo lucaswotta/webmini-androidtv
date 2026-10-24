@@ -67,7 +67,7 @@ public class MainActivity extends Activity {
     }
 
     private static final String HOME = "https://www.google.com/";
-    private static final String ABOUT = "https://github.com/lucaswotta";
+    private static final String ABOUT = "https://github.com/lucaswotta/webmini-androidtv";
     private static final String BLANK = "about:blank";
     private static final String FAVORITES_KEY = "favorites";
     private static final String EASYLIST_URL = "https://easylist.to/easylist/easylist.txt";
@@ -198,13 +198,13 @@ public class MainActivity extends Activity {
         }
         page.addView(toolbar, new LinearLayout.LayoutParams(-1, -2));
         Button home = button("⌂", toolbar);
-        home.setContentDescription("Página inicial");
+        home.setContentDescription(getString(R.string.nav_home));
         home.setOnClickListener(view -> {
             showHomePage();
         });
 
         address = new EditText(this);
-        address.setHint("Pesquisar ou digitar URL");
+        address.setHint(R.string.address_hint);
         address.setSingleLine(true);
         address.setGravity(Gravity.CENTER_VERTICAL);
         address.setSelectAllOnFocus(true);
@@ -226,7 +226,7 @@ public class MainActivity extends Activity {
             return false;
         });
         Button back = button("←", toolbar);
-        back.setContentDescription("Voltar");
+        back.setContentDescription(getString(R.string.nav_back));
         back.setOnClickListener(view -> navigateBack());
         FrameLayout addressBox = new FrameLayout(this);
         toolbar.addView(addressBox, new LinearLayout.LayoutParams(
@@ -239,13 +239,13 @@ public class MainActivity extends Activity {
         loadingLine.setScaleX(0);
         addressBox.addView(loadingLine, new FrameLayout.LayoutParams(-1, dp(2), Gravity.BOTTOM));
         Button reload = button("⟳", toolbar);
-        reload.setContentDescription("Recarregar");
+        reload.setContentDescription(getString(R.string.nav_reload));
         reload.setOnClickListener(view -> reloadPage());
         favoriteButton = button("☆", toolbar);
-        favoriteButton.setContentDescription("Adicionar aos favoritos");
+        favoriteButton.setContentDescription(getString(R.string.nav_favorite_add));
         favoriteButton.setOnClickListener(view -> toggleFavorite());
         Button menu = button("⋮", toolbar);
-        menu.setContentDescription("Opções");
+        menu.setContentDescription(getString(R.string.nav_options));
         menu.setOnClickListener(view -> showMenu());
 
         if (tvMode) {
@@ -350,7 +350,7 @@ public class MainActivity extends Activity {
         landing.addView(logo, logoSize);
 
         TextView title = new TextView(this);
-        title.setText("WebMini");
+        title.setText(R.string.app_name);
         title.setTextColor(Color.WHITE);
         title.setTextSize(26);
         title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
@@ -365,7 +365,7 @@ public class MainActivity extends Activity {
         landing.addView(searchRow, searchRowSize);
         homeSearch = new EditText(this);
         homeSearch.setSingleLine(true);
-        homeSearch.setHint("Pesquisar no Google");
+        homeSearch.setHint(R.string.home_search_hint);
         homeSearch.setTextColor(Color.WHITE);
         homeSearch.setHintTextColor(Color.LTGRAY);
         homeSearch.setTextSize(16);
@@ -392,7 +392,7 @@ public class MainActivity extends Activity {
         searchRow.addView(searchButton, new LinearLayout.LayoutParams(dp(52), -1));
 
         TextView favoritesTitle = new TextView(this);
-        favoritesTitle.setText("Favoritos");
+        favoritesTitle.setText(R.string.favorites_title);
         favoritesTitle.setTextColor(Color.WHITE);
         favoritesTitle.setTextSize(18);
         favoritesTitle.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
@@ -401,7 +401,7 @@ public class MainActivity extends Activity {
         landing.addView(favoritesTitle, headingSize);
         if (favorites.isEmpty()) {
             TextView empty = new TextView(this);
-            empty.setText("Seus sites favoritos aparecem aqui.");
+            empty.setText(R.string.favorites_empty);
             empty.setTextColor(Color.LTGRAY);
             empty.setTextSize(14);
             landing.addView(empty, new LinearLayout.LayoutParams(-1, -2));
@@ -485,7 +485,8 @@ public class MainActivity extends Activity {
         boolean saved = !homePage && favorites.contains(currentUrl);
         favoriteButton.setText(saved ? "★" : "☆");
         favoriteButton.setEnabled(!homePage);
-        favoriteButton.setContentDescription(saved ? "Remover dos favoritos" : "Adicionar aos favoritos");
+        favoriteButton.setContentDescription(getString(saved
+                ? R.string.nav_favorite_remove : R.string.nav_favorite_add));
     }
 
     private String incomingUrl(Intent intent) {
@@ -536,9 +537,9 @@ public class MainActivity extends Activity {
                         approvedHttpUrl = null;
                         return false;
                     }
-                    showConfirmation("Conexão sem criptografia",
-                            "Este site usa HTTP. O conteúdo e os dados enviados podem ser vistos na rede.\n\n"
-                                    + destination.getHost(), "Continuar", "Cancelar",
+                    showConfirmation(getString(R.string.http_warning_title),
+                            getString(R.string.http_warning_message, destination.getHost()),
+                            getString(R.string.action_continue), getString(R.string.action_cancel),
                             () -> {
                                 approvedHttpUrl = destination.toString();
                                 view.loadUrl(destination.toString());
@@ -546,7 +547,7 @@ public class MainActivity extends Activity {
                     return true;
                 }
                 if (!"https".equalsIgnoreCase(scheme)) {
-                    Toast.makeText(MainActivity.this, "Navegação bloqueada", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, R.string.navigation_blocked, Toast.LENGTH_SHORT).show();
                     return true;
                 }
                 return false;
@@ -587,8 +588,7 @@ public class MainActivity extends Activity {
                 webView = null;
                 createWebView(BLANK);
                 address.setText(currentUrl);
-                Toast.makeText(MainActivity.this,
-                        "A página parou. Digite a URL para recarregar.", Toast.LENGTH_LONG).show();
+                Toast.makeText(MainActivity.this, R.string.page_stopped, Toast.LENGTH_LONG).show();
                 return true;
             }
         });
@@ -611,17 +611,16 @@ public class MainActivity extends Activity {
                             if (webView != null) webView.loadUrl(link);
                         };
                         if (popupsBlocked) {
-                            showConfirmation("Abrir outra página?",
-                                    "O site quer abrir este endereço na aba atual:\n\n"
-                                            + Uri.parse(link).getHost(),
-                                    "Abrir", "Bloquear", openLink);
+                            showConfirmation(getString(R.string.popup_open_title),
+                                    getString(R.string.popup_open_message, Uri.parse(link).getHost()),
+                                    getString(R.string.action_open), getString(R.string.action_block), openLink);
                         } else {
                             openLink.run();
                         }
                     });
                 } else {
                     view.post(() -> Toast.makeText(MainActivity.this,
-                            "Pop-up bloqueado: destino não identificado", Toast.LENGTH_LONG).show());
+                            R.string.popup_unknown_blocked, Toast.LENGTH_LONG).show());
                 }
                 return false;
             }
@@ -642,7 +641,7 @@ public class MainActivity extends Activity {
                     android.webkit.ValueCallback<Uri[]> callback,
                     android.webkit.WebChromeClient.FileChooserParams params) {
                 callback.onReceiveValue(null);
-                Toast.makeText(MainActivity.this, "Acesso a arquivos bloqueado", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, R.string.file_access_blocked, Toast.LENGTH_SHORT).show();
                 return true;
             }
 
@@ -846,11 +845,12 @@ public class MainActivity extends Activity {
     }
 
     private void showMenu() {
-        String popupLabel = popupsBlocked
-                ? "Bloqueio Pop-Up: ligado" : "Bloqueio Pop-Up: desligado";
-        String adBlockLabel = adBlockEnabled
-                ? "Anúncios e rastreadores: ligado" : "Anúncios e rastreadores: desligado";
-        String[] entries = {"Avançar", popupLabel, adBlockLabel, "Sobre"};
+        String popupLabel = getString(popupsBlocked
+                ? R.string.popup_block_enabled : R.string.popup_block_disabled);
+        String adBlockLabel = getString(adBlockEnabled
+                ? R.string.tracker_block_enabled : R.string.tracker_block_disabled);
+        String[] entries = {getString(R.string.menu_forward), popupLabel,
+                adBlockLabel, getString(R.string.menu_about)};
         showChoices(entries, which -> {
             if (which == 0 && webView != null && webView.canGoForward()) webView.goForward();
             if (which == 1) {
@@ -1099,17 +1099,17 @@ public class MainActivity extends Activity {
         Uri uri = Uri.parse(url);
         if (!"http".equalsIgnoreCase(uri.getScheme())
                 && !"https".equalsIgnoreCase(uri.getScheme())) {
-            Toast.makeText(this, "Download bloqueado: protocolo não suportado", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, R.string.download_protocol_blocked, Toast.LENGTH_LONG).show();
             return;
         }
         String fileName = URLUtil.guessFileName(url, contentDisposition, mimeType);
-        String host = uri.getHost() == null ? "endereço desconhecido" : uri.getHost();
+        String host = uri.getHost() == null ? getString(R.string.download_unknown_host) : uri.getHost();
         String warning = "http".equalsIgnoreCase(uri.getScheme())
-                ? "\n\nA conexão não é criptografada." : "";
-        showConfirmation("Permitir download?",
-                fileName + "\n" + host + "\n" + (mimeType == null ? "Tipo desconhecido" : mimeType)
-                        + warning + "\n\nO arquivo será salvo em Downloads e não será aberto automaticamente.",
-                "Baixar", "Cancelar", () -> {
+                ? getString(R.string.download_http_warning) : "";
+        showConfirmation(getString(R.string.download_title),
+                getString(R.string.download_details, fileName, host,
+                        mimeType == null ? getString(R.string.download_unknown_type) : mimeType, warning),
+                getString(R.string.action_download), getString(R.string.action_cancel), () -> {
                     pendingDownloadUrl = url;
                     pendingDownloadUserAgent = userAgent;
                     pendingDownloadReferer = webView == null ? null : webView.getUrl();
@@ -1129,7 +1129,7 @@ public class MainActivity extends Activity {
         DownloadManager manager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
         DownloadManager.Request request = new DownloadManager.Request(Uri.parse(pendingDownloadUrl));
         request.setTitle(pendingDownloadName);
-        request.setDescription("Download solicitado no WebMini");
+        request.setDescription(getString(R.string.download_description));
         request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, pendingDownloadName);
         request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
         if (pendingDownloadMime != null) request.setMimeType(pendingDownloadMime);
@@ -1138,7 +1138,7 @@ public class MainActivity extends Activity {
         String cookies = CookieManager.getInstance().getCookie(pendingDownloadUrl);
         if (cookies != null) request.addRequestHeader("Cookie", cookies);
         manager.enqueue(request);
-        Toast.makeText(this, "Download iniciado", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, R.string.download_started, Toast.LENGTH_SHORT).show();
         pendingDownloadUrl = null;
     }
 
@@ -1150,7 +1150,7 @@ public class MainActivity extends Activity {
             startConfirmedDownload();
         } else if (requestCode == 41) {
             pendingDownloadUrl = null;
-            Toast.makeText(this, "Permissão negada; download cancelado", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.download_permission_denied, Toast.LENGTH_SHORT).show();
         }
     }
 
