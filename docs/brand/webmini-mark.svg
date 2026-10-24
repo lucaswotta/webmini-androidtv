@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>WebMini</title>
+  <rect width="512" height="512" rx="112" fill="#2580FD"/>
+  <g fill="none" stroke="#000" stroke-width="12" stroke-linecap="round">
+    <circle cx="256" cy="256" r="134"/>
+    <ellipse cx="256" cy="256" rx="64" ry="134"/>
+    <path d="M122 256H390M256 122V390"/>
+    <path d="M147 178Q256 226 365 178M147 334Q256 286 365 334"/>
+  </g>
+</svg>

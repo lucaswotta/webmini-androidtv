@@ -347,7 +347,7 @@ public class MainActivity extends Activity {
         scroll.addView(landing, new ScrollView.LayoutParams(-1, -2));
 
         ImageView logo = new ImageView(this);
-        logo.setImageResource(R.drawable.ic_browser);
+        logo.setImageResource(R.drawable.ic_logo);
         logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
         LinearLayout.LayoutParams logoSize = new LinearLayout.LayoutParams(dp(92), dp(92));
         logoSize.bottomMargin = dp(8);
