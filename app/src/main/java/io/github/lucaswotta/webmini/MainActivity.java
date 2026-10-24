@@ -1,5 +1,6 @@
 package io.github.lucaswotta.webmini;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.DownloadManager;
@@ -1260,6 +1261,8 @@ public class MainActivity extends Activity {
         }
     }
 
+    // API 33+ goes through the OnBackInvokedCallback registered in onCreate.
+    @SuppressLint("GestureBackNavigation")
     @Override
     public void onBackPressed() {
         navigateBack();
