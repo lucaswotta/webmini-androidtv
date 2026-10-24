@@ -535,6 +535,7 @@ public class MainActivity extends Activity {
         if (tvMode) webView.setBackgroundColor(Color.BLACK);
         WebSettings settings = webView.getSettings();
         CookieManager.getInstance().setAcceptCookie(true);
+        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false);
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setMediaPlaybackRequiresUserGesture(true);
