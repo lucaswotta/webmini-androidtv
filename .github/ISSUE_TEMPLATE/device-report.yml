@@ -1,0 +1,51 @@
+name: Device report
+description: Tell us how WebMini runs on your TV or device.
+labels: ["device report"]
+body:
+  - type: input
+    id: device
+    attributes:
+      label: Device model
+      placeholder: Chromecast with Google TV, Fire TV Stick 4K, Mi Box S...
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Android or Fire OS version
+      placeholder: Android TV 12
+    validations:
+      required: true
+  - type: dropdown
+    id: apk
+    attributes:
+      label: APK installed
+      options:
+        - WebMini-universal.apk
+        - WebMini-armeabi-v7a.apk
+        - WebMini-arm64-v8a.apk
+        - WebMini-x86_64.apk
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: WebMini version
+      placeholder: 0.2.0
+    validations:
+      required: true
+  - type: checkboxes
+    id: works
+    attributes:
+      label: What worked
+      options:
+        - label: The app installs and opens from the launcher
+        - label: The remote moves the pointer and clicks
+        - label: Typing an address with the on-screen keyboard
+        - label: Video plays, including full screen
+        - label: Ads are blocked on sites you use
+  - type: textarea
+    id: notes
+    attributes:
+      label: Problems or notes
+      description: Sites that failed, crashes, slow pages. Output of `adb shell getprop ro.product.cpu.abilist` helps.
