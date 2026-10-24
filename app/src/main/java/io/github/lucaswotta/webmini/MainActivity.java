@@ -264,6 +264,9 @@ public class MainActivity extends Activity {
         if (launchUrl == null || (savedInstanceState != null
                 && savedInstanceState.getBoolean("homePage"))) {
             showHomePage();
+        } else if (needsHttpWarning(launchUrl)) {
+            showHomePage();
+            navigateTo(launchUrl);
         } else {
             createWebView(currentUrl);
         }
@@ -443,11 +446,31 @@ public class MainActivity extends Activity {
     }
 
     private void navigateTo(String url) {
+        // shouldOverrideUrlLoading does not run for loadUrl, so typed addresses,
+        // favorites and links from other apps are checked here.
+        if (needsHttpWarning(url)) {
+            confirmHttp(url);
+            return;
+        }
         if (webView == null) createWebView(url);
         else {
             showLoading();
             webView.loadUrl(url);
         }
+    }
+
+    private boolean needsHttpWarning(String url) {
+        return "http".equalsIgnoreCase(Uri.parse(url).getScheme()) && !url.equals(approvedHttpUrl);
+    }
+
+    private void confirmHttp(String url) {
+        showConfirmation(getString(R.string.http_warning_title),
+                getString(R.string.http_warning_message, Uri.parse(url).getHost()),
+                getString(R.string.action_continue), getString(R.string.action_cancel),
+                () -> {
+                    approvedHttpUrl = url;
+                    navigateTo(url);
+                });
     }
 
     private void loadFavorites() {
@@ -537,13 +560,7 @@ public class MainActivity extends Activity {
                         approvedHttpUrl = null;
                         return false;
                     }
-                    showConfirmation(getString(R.string.http_warning_title),
-                            getString(R.string.http_warning_message, destination.getHost()),
-                            getString(R.string.action_continue), getString(R.string.action_cancel),
-                            () -> {
-                                approvedHttpUrl = destination.toString();
-                                view.loadUrl(destination.toString());
-                            });
+                    confirmHttp(destination.toString());
                     return true;
                 }
                 if (!"https".equalsIgnoreCase(scheme)) {
@@ -608,7 +625,7 @@ public class MainActivity extends Activity {
                 if (link != null && (link.startsWith("https://") || link.startsWith("http://"))) {
                     view.post(() -> {
                         Runnable openLink = () -> {
-                            if (webView != null) webView.loadUrl(link);
+                            if (webView != null) navigateTo(link);
                         };
                         if (popupsBlocked) {
                             showConfirmation(getString(R.string.popup_open_title),
