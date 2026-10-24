@@ -1,4 +1,4 @@
-package br.com.lucaswotta.navegadorleve;
+package io.github.lucaswotta.webmini;
 
 import android.app.Activity;
 import android.app.AlertDialog;

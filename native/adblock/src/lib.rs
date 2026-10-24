@@ -22,7 +22,7 @@ fn java_string(env: &mut JNIEnv<'_>, value: JString<'_>) -> Option<String> {
 }
 
 #[no_mangle]
-pub extern "system" fn Java_br_com_lucaswotta_navegadorleve_MainActivity_nativeBeginFilterLists(
+pub extern "system" fn Java_io_github_lucaswotta_webmini_MainActivity_nativeBeginFilterLists(
     _env: JNIEnv<'_>,
     _class: JClass<'_>,
 ) {
@@ -32,7 +32,7 @@ pub extern "system" fn Java_br_com_lucaswotta_navegadorleve_MainActivity_nativeB
 }
 
 #[no_mangle]
-pub extern "system" fn Java_br_com_lucaswotta_navegadorleve_MainActivity_nativeAddFilterList(
+pub extern "system" fn Java_io_github_lucaswotta_webmini_MainActivity_nativeAddFilterList(
     mut env: JNIEnv<'_>,
     _class: JClass<'_>,
     list: JString<'_>,
@@ -51,7 +51,7 @@ pub extern "system" fn Java_br_com_lucaswotta_navegadorleve_MainActivity_nativeA
 }
 
 #[no_mangle]
-pub extern "system" fn Java_br_com_lucaswotta_navegadorleve_MainActivity_nativeFinishFilterLists(
+pub extern "system" fn Java_io_github_lucaswotta_webmini_MainActivity_nativeFinishFilterLists(
     _env: JNIEnv<'_>,
     _class: JClass<'_>,
 ) -> jboolean {
@@ -70,7 +70,7 @@ pub extern "system" fn Java_br_com_lucaswotta_navegadorleve_MainActivity_nativeF
 }
 
 #[no_mangle]
-pub extern "system" fn Java_br_com_lucaswotta_navegadorleve_MainActivity_nativeClearFilters(
+pub extern "system" fn Java_io_github_lucaswotta_webmini_MainActivity_nativeClearFilters(
     _env: JNIEnv<'_>,
     _class: JClass<'_>,
 ) {
@@ -80,7 +80,7 @@ pub extern "system" fn Java_br_com_lucaswotta_navegadorleve_MainActivity_nativeC
 }
 
 #[no_mangle]
-pub extern "system" fn Java_br_com_lucaswotta_navegadorleve_MainActivity_nativeShouldBlock(
+pub extern "system" fn Java_io_github_lucaswotta_webmini_MainActivity_nativeShouldBlock(
     mut env: JNIEnv<'_>,
     _class: JClass<'_>,
     url: JString<'_>,

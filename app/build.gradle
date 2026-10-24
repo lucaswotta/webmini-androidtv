@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace 'br.com.lucaswotta.navegadorleve'
+    namespace 'io.github.lucaswotta.webmini'
     compileSdk 36
 
     defaultConfig {
-        applicationId 'br.com.lucaswotta.navegadorleve'
+        applicationId 'io.github.lucaswotta.webmini'
         minSdk 23
         targetSdk 36
         versionCode 1
