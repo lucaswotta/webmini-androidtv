@@ -7,7 +7,6 @@
     <string name="nav_options">Opções</string>
     <string name="address_hint">Pesquisar ou digitar URL</string>
     <string name="home_search_hint">Pesquisar no Google</string>
-    <string name="home_search_button">Pesquisar no Google</string>
     <string name="favorites_title">Favoritos</string>
     <string name="favorites_empty">Seus sites favoritos aparecem aqui.</string>
     <string name="http_warning_title">Conexão sem criptografia</string>
@@ -16,10 +15,10 @@
     <string name="action_cancel">Cancelar</string>
     <string name="navigation_blocked">Navegação bloqueada</string>
     <string name="page_stopped">A página parou. Digite o endereço para recarregar.</string>
-    <string name="popup_block_enabled">Bloqueio Pop-Up: ligado</string>
-    <string name="popup_block_disabled">Bloqueio Pop-Up: desligado</string>
-    <string name="tracker_block_enabled">Anúncios e rastreadores: ligados</string>
-    <string name="tracker_block_disabled">Anúncios e rastreadores: desligados</string>
+    <string name="popup_block_enabled">Bloquear pop-ups: ligado</string>
+    <string name="popup_block_disabled">Bloquear pop-ups: desligado</string>
+    <string name="tracker_block_enabled">Bloquear anúncios e rastreadores: ligado</string>
+    <string name="tracker_block_disabled">Bloquear anúncios e rastreadores: desligado</string>
     <string name="menu_forward">Avançar</string>
     <string name="menu_about">Sobre</string>
     <string name="popup_open_title">Abrir esta página?</string>
