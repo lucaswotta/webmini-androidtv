@@ -75,6 +75,10 @@ To find your device's architecture, run `adb shell getprop ro.product.cpu.abilis
 
 4. Confirm the installation. WebMini appears in the apps row of the launcher.
 
+### With Obtainium
+
+With Obtainium installed, [tap here on your TV to add WebMini](obtainium://add?url=https%3A%2F%2Fgithub.com%2Flucaswotta%2Fwebmini-androidtv). Obtainium tracks releases and notifies you when an update is available.
+
 ### With ADB
 
 Enable developer options and network debugging on the TV, then:
