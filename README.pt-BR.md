@@ -67,7 +67,9 @@ Para descobrir a arquitetura do aparelho, rode `adb shell getprop ro.product.cpu
 
 1. Instale o [Downloader by AFTVnews](https://play.google.com/store/apps/details?id=com.esaba.downloader) pela Play Store da TV.
 2. Nas configurações da TV, permita que o Downloader instale apps desconhecidos.
-3. Abra o Downloader e digite:
+3. Abra o Downloader e digite o código `3325686`.
+
+   Se preferir, use o link direto:
 
    ```text
    https://github.com/lucaswotta/webmini-androidtv/releases/latest/download/WebMini-universal.apk
