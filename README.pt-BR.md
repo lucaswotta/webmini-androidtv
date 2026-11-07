@@ -120,11 +120,12 @@ O WebMini se registra como navegador, então links abertos por outros apps podem
 | Sites maliciosos | O Safe Browsing da WebView do Android fica ligado (Android 8.0 ou superior). |
 | Página travada | Recupera quando o processo da página cai, sem fechar o app. |
 
-As listas de filtro são baixadas por HTTPS de `easylist.to`, atualizadas a cada 7 dias, limitadas a 5 MB cada, conferidas pelo cabeçalho e substituídas de forma atômica. Os dois bloqueios podem ser desligados no menu de opções.
+As listas de filtro são baixadas por HTTPS de `easylist.to` e, em aparelhos em português ou espanhol, de `easylist-downloads.adblockplus.org`, atualizadas a cada 7 dias, limitadas a 5 MB cada, conferidas pelo cabeçalho e substituídas de forma atômica. Os dois bloqueios podem ser desligados no menu de opções.
 
 ### Navegação
 
-- Barra de endereço que aceita URL ou pesquisa no Google.
+- Barra de endereço que aceita URL ou pesquisa, com Google, DuckDuckGo, Bing ou Brave como buscador.
+- Pesquisa por voz com o microfone do controle, quando o aparelho tem reconhecedor de fala.
 - Voltar, avançar, recarregar e início.
 - Até 4 favoritos na tela inicial, para a página caber sempre na tela, sem rolagem.
 - Limpar cache pelo menu de opções. O cache também é apagado toda vez que o app fecha.
@@ -159,7 +160,7 @@ Os dados do app ficam fora do backup na nuvem, da transferência entre aparelhos
 
 Requisições feitas fora das páginas que você visita:
 
-- `easylist.to`, no máximo uma vez a cada 7 dias, com o bloqueio de anúncios ligado;
+- `easylist.to` e, em aparelhos em português ou espanhol, `easylist-downloads.adblockplus.org`, no máximo uma vez a cada 7 dias, com o bloqueio de anúncios ligado;
 - Google Safe Browsing, pela WebView do Android, no Android 8.0 ou superior;
 - `google.com`, quando você pesquisa pela tela inicial ou pela barra de endereço.
 
@@ -167,8 +168,7 @@ Requisições feitas fora das páginas que você visita:
 
 - O filtro age só nas requisições de rede. Anúncios bloqueados podem deixar espaço vazio na página, e anúncios servidos pelo próprio site, inclusive os de vídeo do YouTube, não são removidos.
 - Sites podem detectar que requisições foram bloqueadas.
-- Não há listas de filtro regionais. Sites em outros idiomas dependem das regras genéricas da EasyList.
-- O buscador é fixo no Google.
+- Há listas regionais só para português e espanhol, escolhidas pelo idioma do aparelho. Outros idiomas dependem das regras genéricas da EasyList.
 - O WebMini não torna a navegação anônima.
 
 ## Requisitos

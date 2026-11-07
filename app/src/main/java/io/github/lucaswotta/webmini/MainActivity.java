@@ -978,18 +978,27 @@ public class MainActivity extends Activity {
         String[] entries = {getString(R.string.clear_cache), getString(R.string.clear_site_data),
                 getString(R.string.clear_everything)};
         showChoices(entries, which -> {
-            if (webView != null && (which == 0 || which == 2)) {
-                webView.clearCache(true);
-                webView.clearFormData();
+            if (which == 0 || which == 2) clearWebViewCache();
+            if (which == 0) {
+                Toast.makeText(this, R.string.data_cleared, Toast.LENGTH_SHORT).show();
+                return;
             }
-            if (which == 1 || which == 2) {
-                CookieManager.getInstance().removeAllCookies(null);
+            WebStorage.getInstance().deleteAllData();
+            CookieManager.getInstance().removeAllCookies(removed -> {
                 CookieManager.getInstance().flush();
-                WebStorage.getInstance().deleteAllData();
-            }
-            Toast.makeText(this, R.string.data_cleared, Toast.LENGTH_SHORT).show();
-            if (which != 0 && webView != null && !homePage) reloadPage();
+                if (isFinishing() || isDestroyed()) return;
+                Toast.makeText(this, R.string.data_cleared, Toast.LENGTH_SHORT).show();
+                if (webView != null && !homePage) reloadPage();
+            });
         });
+    }
+
+    // The home screen has no WebView, so a short-lived one reaches the shared HTTP cache.
+    private void clearWebViewCache() {
+        WebView target = webView != null ? webView : new WebView(this);
+        target.clearCache(true);
+        target.clearFormData();
+        if (target != webView) target.destroy();
     }
 
     private void applyPopupPolicy(WebSettings settings) {

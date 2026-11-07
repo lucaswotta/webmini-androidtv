@@ -6,6 +6,9 @@
 
 - Clear cache entry in the options menu; the page cache is also erased when the app closes.
 - Obtainium badge and Downloader code at the top of the README.
+- Search engine choice (Google, DuckDuckGo, Bing, Brave) and voice search.
+- Regional filter lists for Portuguese and Spanish devices.
+- Clear data menu: cache, cookies and site data, or everything.
 
 ### Changed
 

@@ -120,11 +120,12 @@ WebMini registers as a browser, so links opened by other apps can open in it.
 | Malicious sites | Android System WebView Safe Browsing is on (Android 8.0 and later). |
 | Crashed pages | Recovers when the page renderer stops, without closing the app. |
 
-Filter lists are downloaded over HTTPS from `easylist.to`, refreshed every 7 days, limited to 5 MB each, checked for a valid header and replaced atomically. Both blocking options can be turned off from the options menu.
+Filter lists are downloaded over HTTPS from `easylist.to` and, for Portuguese and Spanish devices, `easylist-downloads.adblockplus.org`, refreshed every 7 days, limited to 5 MB each, checked for a valid header and replaced atomically. Both blocking options can be turned off from the options menu.
 
 ### Browsing
 
-- Address bar that accepts a URL or a Google search.
+- Address bar that accepts a URL or a search, with Google, DuckDuckGo, Bing or Brave as the engine.
+- Voice search with the remote microphone, when the device has a speech recognizer.
 - Back, forward, reload and home.
 - Up to 4 favorites on the home screen, so the page always fits the screen without scrolling.
 - Clear cache from the options menu. The cache is also erased every time the app closes.
@@ -159,7 +160,7 @@ App data is excluded from cloud backup, device-to-device transfer and `adb backu
 
 Requests made outside the pages you visit:
 
-- `easylist.to`, at most once every 7 days, while ad blocking is on;
+- `easylist.to` and, for Portuguese and Spanish devices, `easylist-downloads.adblockplus.org`, at most once every 7 days, while ad blocking is on;
 - Google Safe Browsing, through Android System WebView, on Android 8.0 and later;
 - `google.com`, when you search from the home screen or the address bar.
 
@@ -167,8 +168,7 @@ Requests made outside the pages you visit:
 
 - Filtering acts on network requests only. Blocked ads can leave empty space on the page, and ads served by the site itself, including YouTube video ads, are not removed.
 - Sites can detect that requests were blocked.
-- No regional filter lists are included. Sites in languages other than English rely on EasyList's generic rules.
-- The search engine is fixed to Google.
+- Regional filter lists exist for Portuguese and Spanish only, chosen by the device language. Other languages rely on EasyList's generic rules.
 - WebMini does not make browsing anonymous.
 
 ## Requirements
