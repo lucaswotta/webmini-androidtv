@@ -29,7 +29,7 @@ jobs:
       - name: Check tag against versionName
         run: |
           version=$(sed -n "s/^[[:space:]]*versionName '\(.*\)'.*/\1/p" app/build.gradle)
-          if [ "$version" != "${GITHUB_REF_NAME#v}" ]; then
+          if [ -z "$version" ] || [ "$version" != "${GITHUB_REF_NAME#v}" ]; then
             echo "tag $GITHUB_REF_NAME does not match versionName $version"
             exit 1
           fi
@@ -53,7 +53,7 @@ jobs:
           ORG_GRADLE_PROJECT_webminiStorePassword: ${{ secrets.WEBMINI_STORE_PASSWORD }}
           ORG_GRADLE_PROJECT_webminiKeyAlias: ${{ secrets.WEBMINI_KEY_ALIAS }}
           ORG_GRADLE_PROJECT_webminiKeyPassword: ${{ secrets.WEBMINI_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon :app:assembleRelease
+        run: ./gradlew --no-daemon :app:assembleRelease :app:lintRelease
       - name: Check signature, ABI splits and JNI library
         env:
           EXPECTED_CERT_SHA256: AB:E8:D3:13:DC:19:19:CB:B4:6A:E4:9B:DC:CF:2C:BC:35:37:66:AF:2A:B3:FD:25:5B:3B:B2:90:39:14:57:37
@@ -98,10 +98,10 @@ jobs:
           fi
           expected=$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ':' | tr '[:lower:]' '[:upper:]')
           for apk in app-*.apk; do
-            actual=$("$apksigner" verify --print-certs "$apk" 2>/dev/null \
+            actual=$("$apksigner" verify --print-certs "$apk" \
                 | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1)
             actual=$(printf '%s' "$actual" | tr -d ':' | tr '[:lower:]' '[:upper:]')
-            if [ "$actual" != "$expected" ]; then
+            if [ -z "$actual" ] || [ "$actual" != "$expected" ]; then
               echo "$apk is not signed with the published certificate: $actual"
               exit 1
             fi
