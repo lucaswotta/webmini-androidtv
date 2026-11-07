@@ -12,8 +12,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: 17
@@ -21,13 +21,65 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018" "platforms;android-36" > /dev/null
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
-      - name: Install Rust targets and cargo-ndk
+      - name: Install Rust toolchain and cargo-ndk
         run: |
+          rustup toolchain install 1.99.1 --profile minimal
+          rustup default 1.99.1
           rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-          cargo install cargo-ndk --locked
+          cargo install cargo-ndk --locked --version 4.1.2
       - name: Build and lint
-        run: ./gradlew --no-daemon :app:assembleDebug :app:lintRelease
-      - uses: actions/upload-artifact@v5
+        run: ./gradlew --no-daemon :app:assembleDebug :app:assembleRelease :app:lintRelease
+      - name: Check ABI splits and JNI library
+        run: |
+          check() {
+            dir=$1
+            variant=$2
+            cd "$dir" || exit 1
+            count=$(ls -1 ./*.apk | wc -l | tr -d ' ')
+            if [ "$count" -ne 4 ]; then
+              echo "expected 4 $variant APKs in $dir, found $count"
+              ls -l
+              exit 1
+            fi
+            for abi in armeabi-v7a arm64-v8a x86_64 universal; do
+              set -- app-"$abi"-"$variant"*.apk
+              if [ ! -f "$1" ] || [ -n "${2:-}" ]; then
+                echo "expected one $variant APK for $abi, found: $*"
+                exit 1
+              fi
+              apk=$1
+              libs=$(unzip -Z1 "$apk" | awk '/^lib\//' | sort)
+              if [ "$abi" = universal ]; then
+                want=$(printf '%s\n' lib/arm64-v8a/libwebmini_adblock.so lib/armeabi-v7a/libwebmini_adblock.so lib/x86_64/libwebmini_adblock.so)
+              else
+                want="lib/$abi/libwebmini_adblock.so"
+              fi
+              if [ "$libs" != "$want" ]; then
+                echo "$apk holds native libraries other than:"
+                echo "$want"
+                echo "found:"
+                echo "$libs"
+                exit 1
+              fi
+            done
+          }
+          check "$GITHUB_WORKSPACE/app/build/outputs/apk/debug" debug
+          check "$GITHUB_WORKSPACE/app/build/outputs/apk/release" release
+      - name: Checksums
+        run: |
+          for variant in debug release; do
+            dir="$GITHUB_WORKSPACE/app/build/outputs/apk/$variant"
+            (cd "$dir" && sha256sum *.apk > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          done
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: webmini-debug-apks
-          path: app/build/outputs/apk/debug/*.apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/debug/SHA256SUMS.txt
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: webmini-release-apks
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/apk/release/SHA256SUMS.txt

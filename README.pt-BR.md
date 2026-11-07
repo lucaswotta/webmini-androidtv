@@ -188,11 +188,11 @@ Usa o WebMini em outro aparelho? [Abra um relato de aparelho](https://github.com
 
 ## Compilar
 
-Requisitos: JDK 17 ou superior, Android SDK Platform 36, Android NDK 27.2.12479018, Rust e [`cargo-ndk`](https://github.com/bbqsrc/cargo-ndk).
+Requisitos: JDK 17 ou superior, Android SDK Platform 36, Android NDK 27.2.12479018, Rust 1.99.1 e [`cargo-ndk`](https://github.com/bbqsrc/cargo-ndk) 4.1.2.
 
 ```sh
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-cargo install cargo-ndk --locked
+cargo install cargo-ndk --locked --version 4.1.2
 export ANDROID_HOME=/caminho/do/android/sdk
 ./gradlew :app:assembleDebug
 ```
@@ -213,6 +213,10 @@ webminiKeyPassword=...
 ```
 
 Sem elas, `assembleRelease` gera APKs sem assinatura.
+
+A integração contínua compila as duas variantes a cada push e pull request, confere que cada APK traz uma divisão de ABI mais a `libwebmini_adblock.so` correspondente, e grava `SHA256SUMS.txt` ao lado dos APKs. Os workflows fixam Rust 1.99.1, cargo-ndk 4.1.2 e cada action pelo SHA do commit, e o wrapper do Gradle verifica o SHA-256 da sua distribuição.
+
+Publicar uma tag `v*` executa `.github/workflows/release.yml`: ele recusa tag que não bate com `versionName`, compila uma release assinada, confere cada APK contra o digesto do certificado em [Certificado de assinatura](#certificado-de-assinatura), renomeia os arquivos para `WebMini-{universal,armeabi-v7a,arm64-v8a,x86_64}.apk`, grava `SHA256SUMS.txt` e anexa os dois à página da release. A assinatura lê os secrets do repositório `WEBMINI_KEYSTORE_BASE64` (o keystore codificado com `base64 -w0`), `WEBMINI_STORE_PASSWORD`, `WEBMINI_KEY_ALIAS` e `WEBMINI_KEY_PASSWORD`; nenhuma chave chega ao repositório nem aos logs.
 
 ### Estrutura
 

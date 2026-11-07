@@ -13,6 +13,9 @@
 ### Changed
 
 - Favorites are limited to 4, the most that fit the home screen at 720p without scrolling. Existing favorites beyond 4 are hidden on the next launch and dropped when favorites are next saved.
+- CI builds the release variant with R8, checks ABI splits and the JNI library and writes `SHA256SUMS.txt`.
+- Workflows pin Rust 1.99.1, cargo-ndk 4.1.2, each action by commit SHA and the Gradle wrapper checksum.
+- A `v*` tag publishes the signed `WebMini-*.apk` files and `SHA256SUMS.txt` through `.github/workflows/release.yml`.
 
 ## 0.2.0 (2026-10-24)
 

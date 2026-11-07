@@ -188,11 +188,11 @@ Running WebMini on another device? [Open a device report](https://github.com/luc
 
 ## Build
 
-Requirements: JDK 17 or later, Android SDK Platform 36, Android NDK 27.2.12479018, Rust and [`cargo-ndk`](https://github.com/bbqsrc/cargo-ndk).
+Requirements: JDK 17 or later, Android SDK Platform 36, Android NDK 27.2.12479018, Rust 1.99.1 and [`cargo-ndk`](https://github.com/bbqsrc/cargo-ndk) 4.1.2.
 
 ```sh
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-cargo install cargo-ndk --locked
+cargo install cargo-ndk --locked --version 4.1.2
 export ANDROID_HOME=/path/to/android/sdk
 ./gradlew :app:assembleDebug
 ```
@@ -213,6 +213,10 @@ webminiKeyPassword=...
 ```
 
 Without them, `assembleRelease` produces unsigned APKs.
+
+Continuous integration builds both variants on every push and pull request, checks that each APK carries one ABI split plus the matching `libwebmini_adblock.so`, and writes `SHA256SUMS.txt` beside the APKs. The workflows pin Rust 1.99.1, cargo-ndk 4.1.2 and each action by commit SHA, and the Gradle wrapper verifies the SHA-256 of its distribution.
+
+Pushing a tag `v*` runs `.github/workflows/release.yml`: it refuses a tag that does not match `versionName`, builds a signed release, checks every APK against the certificate digest in [Release signing certificate](#release-signing-certificate), renames the files to `WebMini-{universal,armeabi-v7a,arm64-v8a,x86_64}.apk`, writes `SHA256SUMS.txt` and attaches both to the release page. Signing reads the repository secrets `WEBMINI_KEYSTORE_BASE64` (the keystore encoded with `base64 -w0`), `WEBMINI_STORE_PASSWORD`, `WEBMINI_KEY_ALIAS` and `WEBMINI_KEY_PASSWORD`; no key material reaches the repository or the logs.
 
 ### Project layout
 
