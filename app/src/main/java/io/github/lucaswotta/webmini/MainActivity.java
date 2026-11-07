@@ -71,6 +71,8 @@ public class MainActivity extends Activity {
     private static final String ABOUT = "https://github.com/lucaswotta/webmini-androidtv";
     private static final String BLANK = "about:blank";
     private static final String FAVORITES_KEY = "favorites";
+    // Two rows of two buttons fit the 720p TV viewport; a third row is clipped.
+    private static final int MAX_FAVORITES = 4;
     private static final String EASYLIST_URL = "https://easylist.to/easylist/easylist.txt";
     private static final String EASYPRIVACY_URL = "https://easylist.to/easylist/easyprivacy.txt";
     private static final String[] FILTER_LIST_FILES = {"easylist.txt", "easyprivacy.txt"};
@@ -481,7 +483,8 @@ public class MainActivity extends Activity {
             JSONArray urls = new JSONArray(saved);
             for (int i = 0; i < urls.length(); i++) {
                 String url = urls.optString(i);
-                if (url.startsWith("https://") || url.startsWith("http://")) {
+                if (favorites.size() < MAX_FAVORITES
+                        && (url.startsWith("https://") || url.startsWith("http://"))) {
                     favorites.add(url);
                 }
             }
@@ -498,8 +501,15 @@ public class MainActivity extends Activity {
 
     private void toggleFavorite() {
         if (webView == null || currentUrl == null || !currentUrl.startsWith("http")) return;
-        if (favorites.contains(currentUrl)) favorites.remove(currentUrl);
-        else favorites.add(0, currentUrl);
+        if (favorites.contains(currentUrl)) {
+            favorites.remove(currentUrl);
+        } else if (favorites.size() >= MAX_FAVORITES) {
+            Toast.makeText(this, getString(R.string.favorites_full, MAX_FAVORITES),
+                    Toast.LENGTH_LONG).show();
+            return;
+        } else {
+            favorites.add(0, currentUrl);
+        }
         persistFavorites();
         updateFavoriteButton();
     }
@@ -869,7 +879,7 @@ public class MainActivity extends Activity {
         String adBlockLabel = getString(adBlockEnabled
                 ? R.string.tracker_block_enabled : R.string.tracker_block_disabled);
         String[] entries = {getString(R.string.menu_forward), popupLabel,
-                adBlockLabel, getString(R.string.menu_about)};
+                adBlockLabel, getString(R.string.menu_clear_cache), getString(R.string.menu_about)};
         showChoices(entries, which -> {
             if (which == 0 && webView != null && webView.canGoForward()) webView.goForward();
             if (which == 1) {
@@ -890,7 +900,12 @@ public class MainActivity extends Activity {
                 }
                 if (webView != null) reloadPage();
             }
-            if (which == 3) {
+            if (which == 3 && webView != null) {
+                webView.clearCache(true);
+                webView.clearFormData();
+                Toast.makeText(this, R.string.cache_cleared, Toast.LENGTH_SHORT).show();
+            }
+            if (which == 4) {
                 navigateTo(ABOUT);
             }
         });
@@ -1315,6 +1330,7 @@ public class MainActivity extends Activity {
             }
             webView.stopLoading();
             webView.clearHistory();
+            webView.clearCache(true);
             webView.destroy();
             webView = null;
         }
