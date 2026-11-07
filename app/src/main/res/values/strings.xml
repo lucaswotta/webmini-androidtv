@@ -49,4 +49,6 @@
     <string name="voice_unavailable">Voice search is not available on this device</string>
     <string name="tracker_block_loading">Block ads and trackers: loading lists</string>
     <string name="tracker_block_reduced">Block ads and trackers: basic list only</string>
+    <string name="page_failed">The page could not be loaded.</string>
+    <string name="edit_address">Edit address</string>
 </resources>
