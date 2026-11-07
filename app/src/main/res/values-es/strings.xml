@@ -46,4 +46,6 @@
     <string name="data_cleared">Datos borrados</string>
     <string name="voice_search">Búsqueda por voz</string>
     <string name="voice_unavailable">La búsqueda por voz no está disponible en este dispositivo</string>
+    <string name="page_failed">No se pudo cargar la página.</string>
+    <string name="edit_address">Editar dirección</string>
 </resources>

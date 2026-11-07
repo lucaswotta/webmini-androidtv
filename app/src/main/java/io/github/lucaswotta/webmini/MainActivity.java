@@ -38,6 +38,7 @@ import android.webkit.ServiceWorkerClient;
 import android.webkit.ServiceWorkerController;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -127,12 +128,12 @@ public class MainActivity extends Activity {
     private WebChromeClient.CustomViewCallback fullscreenCallback;
     private volatile boolean adBlockEnabled;
     private boolean popupsBlocked;
+    private boolean navigationErrorShown;
     private String pendingDownloadUrl;
     private String pendingDownloadUserAgent;
     private String pendingDownloadReferer;
     private String pendingDownloadName;
     private String pendingDownloadMime;
-    private String approvedHttpUrl;
     private float cursorX = -1;
     private float cursorY = -1;
     private float analogX;
@@ -279,11 +280,9 @@ public class MainActivity extends Activity {
         if (launchUrl == null || (savedInstanceState != null
                 && savedInstanceState.getBoolean("homePage"))) {
             showHomePage();
-        } else if (needsHttpWarning(launchUrl)) {
+        } else {
             showHomePage();
             navigateTo(launchUrl);
-        } else {
-            createWebView(currentUrl);
         }
         if (Build.VERSION.SDK_INT >= 33) {
             getOnBackInvokedDispatcher().registerOnBackInvokedCallback(0, this::navigateBack);
@@ -516,10 +515,18 @@ public class MainActivity extends Activity {
     private void navigateTo(String url) {
         // shouldOverrideUrlLoading does not run for loadUrl, so typed addresses,
         // favorites and links from other apps are checked here.
+        if (NavigationPolicy.decide(url) == NavigationPolicy.Decision.BLOCK) {
+            Toast.makeText(this, R.string.navigation_blocked, Toast.LENGTH_SHORT).show();
+            return;
+        }
         if (needsHttpWarning(url)) {
             confirmHttp(url);
             return;
         }
+        loadConfirmedUrl(url);
+    }
+
+    private void loadConfirmedUrl(String url) {
         if (webView == null) createWebView(url);
         else {
             showLoading();
@@ -528,17 +535,25 @@ public class MainActivity extends Activity {
     }
 
     private boolean needsHttpWarning(String url) {
-        return "http".equalsIgnoreCase(Uri.parse(url).getScheme()) && !url.equals(approvedHttpUrl);
+        return NavigationPolicy.decide(url) == NavigationPolicy.Decision.CONFIRM_HTTP;
     }
 
     private void confirmHttp(String url) {
         showConfirmation(getString(R.string.http_warning_title),
                 getString(R.string.http_warning_message, Uri.parse(url).getHost()),
                 getString(R.string.action_continue), getString(R.string.action_cancel),
-                () -> {
-                    approvedHttpUrl = url;
-                    navigateTo(url);
-                });
+                () -> loadConfirmedUrl(url));
+    }
+
+    private boolean overrideNavigation(String url, boolean mainFrame, String method) {
+        NavigationPolicy.Decision decision = NavigationPolicy.decide(url, mainFrame, method);
+        if (decision == NavigationPolicy.Decision.ALLOW) return false;
+        if (decision == NavigationPolicy.Decision.CONFIRM_HTTP) {
+            confirmHttp(url);
+        } else {
+            Toast.makeText(this, R.string.navigation_blocked, Toast.LENGTH_SHORT).show();
+        }
+        return true;
     }
 
     private void loadFavorites() {
@@ -607,7 +622,9 @@ public class MainActivity extends Activity {
 
     private void createWebView(String url) {
         content.removeAllViews();
+        navigationErrorShown = false;
         webView = new WebView(this);
+        webView.resumeTimers();
         if (tvMode) webView.setBackgroundColor(Color.BLACK);
         WebSettings settings = webView.getSettings();
         CookieManager.getInstance().setAcceptCookie(true);
@@ -629,28 +646,25 @@ public class MainActivity extends Activity {
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                if (!request.isForMainFrame()) return false;
-                Uri destination = request.getUrl();
-                String scheme = destination.getScheme();
-                if ("http".equalsIgnoreCase(scheme)) {
-                    if (destination.toString().equals(approvedHttpUrl)) {
-                        approvedHttpUrl = null;
-                        return false;
-                    }
-                    confirmHttp(destination.toString());
-                    return true;
-                }
-                if (!"https".equalsIgnoreCase(scheme)) {
-                    Toast.makeText(MainActivity.this, R.string.navigation_blocked, Toast.LENGTH_SHORT).show();
-                    return true;
-                }
-                return false;
+                return overrideNavigation(request.getUrl().toString(), request.isForMainFrame(),
+                        request.getMethod());
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return overrideNavigation(url, true, "GET");
+            }
+
+            @Override
+            public void onFormResubmission(WebView view, Message dontResend, Message resend) {
+                dontResend.sendToTarget();
             }
 
             @Override
             public void onPageStarted(WebView view, String pageUrl,
                                       android.graphics.Bitmap favicon) {
-                if (view == webView) {
+                if (view == webView && !BLANK.equals(pageUrl)) {
+                    navigationErrorShown = false;
                     currentUrl = pageUrl;
                     if (loadingLine.getVisibility() != View.VISIBLE) showLoading();
                 }
@@ -683,7 +697,25 @@ public class MainActivity extends Activity {
                 createWebView(BLANK);
                 address.setText(currentUrl);
                 Toast.makeText(MainActivity.this, R.string.page_stopped, Toast.LENGTH_LONG).show();
+                showNavigationError(webView, false);
                 return true;
+            }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request,
+                                        WebResourceError error) {
+                if (request.isForMainFrame()) {
+                    showNavigationError(view, "GET".equalsIgnoreCase(request.getMethod()));
+                }
+            }
+
+            @Override
+            public void onReceivedHttpError(WebView view, WebResourceRequest request,
+                                            WebResourceResponse response) {
+                int status = response.getStatusCode();
+                if (request.isForMainFrame() && status >= 400 && status != 401 && status != 407) {
+                    showNavigationError(view, "GET".equalsIgnoreCase(request.getMethod()));
+                }
             }
         });
         webView.setWebChromeClient(new WebChromeClient() {
@@ -764,6 +796,32 @@ public class MainActivity extends Activity {
         address.setText(url.equals(BLANK) ? currentUrl : url);
         updateFavoriteButton();
         webView.loadUrl(url);
+    }
+
+    private void showNavigationError(WebView failedView, boolean canRetry) {
+        String failedUrl = currentUrl;
+        failedView.post(() -> {
+            if (failedView != webView || isFinishing() || isDestroyed()
+                    || !failedUrl.equals(currentUrl) || navigationErrorShown) return;
+            navigationErrorShown = true;
+            loadingLine.removeCallbacks(hideLoading);
+            loadingLine.setVisibility(View.INVISIBLE);
+            Toast.makeText(this, R.string.page_failed, Toast.LENGTH_LONG).show();
+            String[] actions = canRetry
+                    ? new String[]{getString(R.string.nav_reload), getString(R.string.edit_address),
+                            getString(R.string.nav_home)}
+                    : new String[]{getString(R.string.edit_address), getString(R.string.nav_home)};
+            showChoices(actions, which -> {
+                if (failedView != webView || !failedUrl.equals(currentUrl)) return;
+                if (canRetry && which == 0) reloadPage();
+                else if (which == (canRetry ? 1 : 0)) {
+                    address.setText(failedUrl);
+                    address.requestFocus();
+                    ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
+                            .showSoftInput(address, InputMethodManager.SHOW_IMPLICIT);
+                } else showHomePage();
+            });
+        });
     }
 
     private void createCursor() {
@@ -1242,8 +1300,7 @@ public class MainActivity extends Activity {
     private void confirmDownload(String url, String userAgent,
                                  String contentDisposition, String mimeType) {
         Uri uri = Uri.parse(url);
-        if (!"http".equalsIgnoreCase(uri.getScheme())
-                && !"https".equalsIgnoreCase(uri.getScheme())) {
+        if (NavigationPolicy.decide(url) == NavigationPolicy.Decision.BLOCK) {
             Toast.makeText(this, R.string.download_protocol_blocked, Toast.LENGTH_LONG).show();
             return;
         }
@@ -1431,13 +1488,13 @@ public class MainActivity extends Activity {
         loadingLine.removeCallbacks(hideLoading);
         closeMenu();
         hideFullscreen();
+        clearWebViewCache();
         if (webView != null) {
             if (webView.getParent() instanceof ViewGroup) {
                 ((ViewGroup) webView.getParent()).removeView(webView);
             }
             webView.stopLoading();
             webView.clearHistory();
-            webView.clearCache(true);
             webView.destroy();
             webView = null;
         }

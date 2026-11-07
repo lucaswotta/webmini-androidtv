@@ -47,4 +47,6 @@
     <string name="data_cleared">Data cleared</string>
     <string name="voice_search">Voice search</string>
     <string name="voice_unavailable">Voice search is not available on this device</string>
+    <string name="page_failed">The page could not be loaded.</string>
+    <string name="edit_address">Edit address</string>
 </resources>
