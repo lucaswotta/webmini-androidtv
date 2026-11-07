@@ -6,6 +6,8 @@ import android.app.AlertDialog;
 import android.app.DownloadManager;
 import android.content.Context;
 import android.content.Intent;
+import android.speech.RecognizerIntent;
+import android.webkit.WebStorage;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
@@ -26,6 +28,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
@@ -75,7 +78,16 @@ public class MainActivity extends Activity {
     private static final int MAX_FAVORITES = 4;
     private static final String EASYLIST_URL = "https://easylist.to/easylist/easylist.txt";
     private static final String EASYPRIVACY_URL = "https://easylist.to/easylist/easyprivacy.txt";
-    private static final String[] FILTER_LIST_FILES = {"easylist.txt", "easyprivacy.txt"};
+    private static final String[] FILTER_LIST_FILES =
+            {"easylist.txt", "easyprivacy.txt", "easylist-regional.txt"};
+    private static final int REGIONAL_LIST = 2;
+    private static final int VOICE_REQUEST = 7;
+    private static final String[][] SEARCH_ENGINES = {
+            {"Google", "https://www.google.com/search?q="},
+            {"DuckDuckGo", "https://duckduckgo.com/?q="},
+            {"Bing", "https://www.bing.com/search?q="},
+            {"Brave", "https://search.brave.com/search?q="},
+    };
     private static final long FILTER_LIST_MAX_AGE = 7L * 24 * 60 * 60 * 1000;
     private static final int MAX_FILTER_LIST_BYTES = 5 * 1024 * 1024;
     private static final byte[] EMPTY_BODY = new byte[0];
@@ -371,7 +383,8 @@ public class MainActivity extends Activity {
         landing.addView(searchRow, searchRowSize);
         homeSearch = new EditText(this);
         homeSearch.setSingleLine(true);
-        homeSearch.setHint(R.string.home_search_hint);
+        homeSearch.setHint(getString(R.string.home_search_hint,
+                SEARCH_ENGINES[searchEngineIndex()][0]));
         homeSearch.setTextColor(Color.WHITE);
         homeSearch.setHintTextColor(Color.LTGRAY);
         homeSearch.setTextSize(16);
@@ -382,19 +395,27 @@ public class MainActivity extends Activity {
         homeSearch.setOnEditorActionListener((view, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_SEARCH
                     || (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
-                searchGoogle(homeSearch.getText().toString());
+                search(homeSearch.getText().toString());
                 return true;
             }
             return false;
         });
         searchRow.addView(homeSearch, new LinearLayout.LayoutParams(0, -1, 1));
+        if (voiceSearchAvailable()) {
+            ImageButton micButton = new ImageButton(this);
+            micButton.setImageResource(R.drawable.ic_mic);
+            micButton.setBackgroundColor(Color.TRANSPARENT);
+            micButton.setContentDescription(getString(R.string.voice_search));
+            micButton.setOnClickListener(view -> startVoiceSearch());
+            searchRow.addView(micButton, new LinearLayout.LayoutParams(dp(52), -1));
+        }
         Button searchButton = new Button(this);
         searchButton.setText("⌕");
         searchButton.setTextColor(Color.rgb(56, 189, 248));
         searchButton.setTextSize(23);
         searchButton.setMinWidth(dp(52));
         searchButton.setBackgroundColor(Color.TRANSPARENT);
-        searchButton.setOnClickListener(view -> searchGoogle(homeSearch.getText().toString()));
+        searchButton.setOnClickListener(view -> search(homeSearch.getText().toString()));
         searchRow.addView(searchButton, new LinearLayout.LayoutParams(dp(52), -1));
 
         TextView favoritesTitle = new TextView(this);
@@ -438,14 +459,58 @@ public class MainActivity extends Activity {
         updateFavoriteButton();
     }
 
-    private void searchGoogle(String query) {
-        String trimmed = query.trim();
-        if (trimmed.isEmpty()) return;
+    private int searchEngineIndex() {
+        int saved = getPreferences(MODE_PRIVATE).getInt("searchEngine", 0);
+        return saved >= 0 && saved < SEARCH_ENGINES.length ? saved : 0;
+    }
+
+    private String searchUrl(String query) {
         try {
-            navigateTo("https://www.google.com/search?q=" + URLEncoder.encode(trimmed, "UTF-8"));
+            return SEARCH_ENGINES[searchEngineIndex()][1] + URLEncoder.encode(query, "UTF-8");
         } catch (java.io.UnsupportedEncodingException error) {
             throw new AssertionError(error);
         }
+    }
+
+    private void search(String query) {
+        String trimmed = query.trim();
+        if (trimmed.isEmpty()) return;
+        navigateTo(searchUrl(trimmed));
+    }
+
+    private void chooseSearchEngine() {
+        String[] names = new String[SEARCH_ENGINES.length];
+        for (int i = 0; i < names.length; i++) names[i] = SEARCH_ENGINES[i][0];
+        showChoices(names, which -> {
+            getPreferences(MODE_PRIVATE).edit().putInt("searchEngine", which).apply();
+            if (homeSearch != null) {
+                homeSearch.setHint(getString(R.string.home_search_hint, SEARCH_ENGINES[which][0]));
+            }
+        });
+    }
+
+    private boolean voiceSearchAvailable() {
+        return new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .resolveActivity(getPackageManager()) != null;
+    }
+
+    private void startVoiceSearch() {
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        try {
+            startActivityForResult(intent, VOICE_REQUEST);
+        } catch (android.content.ActivityNotFoundException ignored) {
+            Toast.makeText(this, R.string.voice_unavailable, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != VOICE_REQUEST || resultCode != RESULT_OK || data == null) return;
+        ArrayList<String> spoken = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+        if (spoken != null && !spoken.isEmpty()) search(spoken.get(0));
     }
 
     private void navigateTo(String url) {
@@ -878,8 +943,9 @@ public class MainActivity extends Activity {
                 ? R.string.popup_block_enabled : R.string.popup_block_disabled);
         String adBlockLabel = getString(adBlockEnabled
                 ? R.string.tracker_block_enabled : R.string.tracker_block_disabled);
-        String[] entries = {getString(R.string.menu_forward), popupLabel,
-                adBlockLabel, getString(R.string.menu_clear_cache), getString(R.string.menu_about)};
+        String[] entries = {getString(R.string.menu_forward), popupLabel, adBlockLabel,
+                getString(R.string.menu_search_engine, SEARCH_ENGINES[searchEngineIndex()][0]),
+                getString(R.string.menu_clear_data), getString(R.string.menu_about)};
         showChoices(entries, which -> {
             if (which == 0 && webView != null && webView.canGoForward()) webView.goForward();
             if (which == 1) {
@@ -900,14 +966,29 @@ public class MainActivity extends Activity {
                 }
                 if (webView != null) reloadPage();
             }
-            if (which == 3 && webView != null) {
-                webView.clearCache(true);
-                webView.clearFormData();
-                Toast.makeText(this, R.string.cache_cleared, Toast.LENGTH_SHORT).show();
-            }
-            if (which == 4) {
+            if (which == 3) chooseSearchEngine();
+            if (which == 4) clearDataMenu();
+            if (which == 5) {
                 navigateTo(ABOUT);
             }
+        });
+    }
+
+    private void clearDataMenu() {
+        String[] entries = {getString(R.string.clear_cache), getString(R.string.clear_site_data),
+                getString(R.string.clear_everything)};
+        showChoices(entries, which -> {
+            if (webView != null && (which == 0 || which == 2)) {
+                webView.clearCache(true);
+                webView.clearFormData();
+            }
+            if (which == 1 || which == 2) {
+                CookieManager.getInstance().removeAllCookies(null);
+                CookieManager.getInstance().flush();
+                WebStorage.getInstance().deleteAllData();
+            }
+            Toast.makeText(this, R.string.data_cleared, Toast.LENGTH_SHORT).show();
+            if (which != 0 && webView != null && !homePage) reloadPage();
         });
     }
 
@@ -990,6 +1071,7 @@ public class MainActivity extends Activity {
                 long lastUpdate = getPreferences(MODE_PRIVATE)
                         .getLong("filterListsUpdatedAt", 0);
                 if (lists[0] == null || lists[1] == null || !hasCachedLists
+                        || (regionalListUrl() != null && lists[REGIONAL_LIST] == null)
                         || System.currentTimeMillis() - lastUpdate >= FILTER_LIST_MAX_AGE) {
                     updateFilterLists(lists);
                 }
@@ -1005,9 +1087,23 @@ public class MainActivity extends Activity {
         });
     }
 
+    private String regionalListUrl() {
+        switch (Locale.getDefault().getLanguage()) {
+            case "pt": return "https://easylist-downloads.adblockplus.org/easylistportuguese.txt";
+            case "es": return "https://easylist-downloads.adblockplus.org/easylistspanish.txt";
+            default: return null;
+        }
+    }
+
+    private boolean regionalListCached() {
+        return regionalListUrl() != null && Locale.getDefault().getLanguage().equals(
+                getPreferences(MODE_PRIVATE).getString("regionalListLanguage", ""));
+    }
+
     private String[] readCachedFilterLists() {
         String[] lists = new String[FILTER_LIST_FILES.length];
         for (int i = 0; i < FILTER_LIST_FILES.length; i++) {
+            if (i == REGIONAL_LIST && !regionalListCached()) continue;
             File file = new File(getFilesDir(), FILTER_LIST_FILES[i]);
             if (!file.isFile() || file.length() <= 0 || file.length() > MAX_FILTER_LIST_BYTES) continue;
             try (InputStream input = new FileInputStream(file);
@@ -1023,14 +1119,20 @@ public class MainActivity extends Activity {
     }
 
     private void updateFilterLists(String[] cachedLists) {
-        String[] urls = {EASYLIST_URL, EASYPRIVACY_URL};
+        String[] urls = {EASYLIST_URL, EASYPRIVACY_URL, regionalListUrl()};
         boolean updated = false;
         for (int i = 0; i < urls.length; i++) {
             if (!adBlockEnabled) return;
+            if (urls[i] == null) continue;
             String downloaded = downloadFilterList(urls[i]);
             if (downloaded == null) continue;
             try {
                 saveFilterList(i, downloaded);
+                if (i == REGIONAL_LIST) {
+                    getPreferences(MODE_PRIVATE).edit()
+                            .putString("regionalListLanguage", Locale.getDefault().getLanguage())
+                            .apply();
+                }
                 cachedLists[i] = downloaded;
                 updated = true;
             } catch (IOException ignored) {
@@ -1240,11 +1342,7 @@ public class MainActivity extends Activity {
         if (input.startsWith("https://") || input.startsWith("http://")) {
             url = input;
         } else if (input.contains(" ") || !input.contains(".")) {
-            try {
-                url = "https://www.google.com/search?q=" + URLEncoder.encode(input, "UTF-8");
-            } catch (java.io.UnsupportedEncodingException error) {
-                throw new AssertionError(error);
-            }
+            url = searchUrl(input);
         } else {
             url = "https://" + input;
         }

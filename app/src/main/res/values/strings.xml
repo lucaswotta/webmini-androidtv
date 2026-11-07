@@ -7,7 +7,7 @@
     <string name="nav_favorite_remove">Remove from favorites</string>
     <string name="nav_options">Options</string>
     <string name="address_hint">Search or enter URL</string>
-    <string name="home_search_hint">Search Google</string>
+    <string name="home_search_hint">Search %s</string>
     <string name="favorites_title">Favorites</string>
     <string name="favorites_empty">Your favorite sites will appear here.</string>
     <string name="http_warning_title">Unencrypted connection</string>
@@ -39,6 +39,12 @@
     <string name="download_started">Download started</string>
     <string name="download_permission_denied">Permission denied; download canceled</string>
     <string name="favorites_full">Up to %d favorites. Remove one to add another.</string>
-    <string name="menu_clear_cache">Clear cache</string>
-    <string name="cache_cleared">Cache cleared</string>
+    <string name="menu_search_engine">Search engine: %s</string>
+    <string name="menu_clear_data">Clear data</string>
+    <string name="clear_cache">Cache</string>
+    <string name="clear_site_data">Cookies and site data</string>
+    <string name="clear_everything">Everything</string>
+    <string name="data_cleared">Data cleared</string>
+    <string name="voice_search">Voice search</string>
+    <string name="voice_unavailable">Voice search is not available on this device</string>
 </resources>

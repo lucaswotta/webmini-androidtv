@@ -6,7 +6,7 @@
     <string name="nav_favorite_remove">Quitar de favoritos</string>
     <string name="nav_options">Opciones</string>
     <string name="address_hint">Buscar o escribir URL</string>
-    <string name="home_search_hint">Buscar en Google</string>
+    <string name="home_search_hint">Buscar en %s</string>
     <string name="favorites_title">Favoritos</string>
     <string name="favorites_empty">Tus sitios favoritos aparecerán aquí.</string>
     <string name="http_warning_title">Conexión sin cifrar</string>
@@ -38,6 +38,12 @@
     <string name="download_started">Descarga iniciada</string>
     <string name="download_permission_denied">Permiso denegado; descarga cancelada</string>
     <string name="favorites_full">Máximo de %d favoritos. Quita uno para añadir otro.</string>
-    <string name="menu_clear_cache">Borrar caché</string>
-    <string name="cache_cleared">Caché borrada</string>
+    <string name="menu_search_engine">Buscador: %s</string>
+    <string name="menu_clear_data">Borrar datos</string>
+    <string name="clear_cache">Caché</string>
+    <string name="clear_site_data">Cookies y datos de sitios</string>
+    <string name="clear_everything">Todo</string>
+    <string name="data_cleared">Datos borrados</string>
+    <string name="voice_search">Búsqueda por voz</string>
+    <string name="voice_unavailable">La búsqueda por voz no está disponible en este dispositivo</string>
 </resources>
