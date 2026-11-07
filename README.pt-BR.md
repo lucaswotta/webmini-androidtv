@@ -188,9 +188,11 @@ Usa o WebMini em outro aparelho? [Abra um relato de aparelho](https://github.com
 
 ## Compilar
 
-Requisitos: JDK 17 ou superior, Android SDK Platform 36, Android NDK 27.2.12479018, Rust 1.99.1 e [`cargo-ndk`](https://github.com/bbqsrc/cargo-ndk) 4.1.2.
+Requisitos: JDK 17 ou superior, Android SDK Platform 36, Android NDK 27.2.12479018, Rust 1.99.1 e [`cargo-ndk`](https://github.com/bbqsrc/cargo-ndk) 4.1.2. A CI usa Rust 1.99.1 e cargo-ndk 4.1.2; instale as mesmas versões para reproduzir o build localmente.
 
 ```sh
+rustup toolchain install 1.99.1 --profile minimal
+rustup default 1.99.1
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 cargo install cargo-ndk --locked --version 4.1.2
 export ANDROID_HOME=/caminho/do/android/sdk

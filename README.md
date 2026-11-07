@@ -188,9 +188,11 @@ Running WebMini on another device? [Open a device report](https://github.com/luc
 
 ## Build
 
-Requirements: JDK 17 or later, Android SDK Platform 36, Android NDK 27.2.12479018, Rust 1.99.1 and [`cargo-ndk`](https://github.com/bbqsrc/cargo-ndk) 4.1.2.
+Requirements: JDK 17 or later, Android SDK Platform 36, Android NDK 27.2.12479018, Rust 1.99.1 and [`cargo-ndk`](https://github.com/bbqsrc/cargo-ndk) 4.1.2. CI uses Rust 1.99.1 and cargo-ndk 4.1.2; install the same versions to reproduce builds locally.
 
 ```sh
+rustup toolchain install 1.99.1 --profile minimal
+rustup default 1.99.1
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 cargo install cargo-ndk --locked --version 4.1.2
 export ANDROID_HOME=/path/to/android/sdk
