@@ -46,4 +46,6 @@
     <string name="data_cleared">Datos borrados</string>
     <string name="voice_search">Búsqueda por voz</string>
     <string name="voice_unavailable">La búsqueda por voz no está disponible en este dispositivo</string>
+    <string name="tracker_block_loading">Bloquear anuncios y rastreadores: cargando listas</string>
+    <string name="tracker_block_reduced">Bloquear anuncios y rastreadores: solo lista básica</string>
 </resources>

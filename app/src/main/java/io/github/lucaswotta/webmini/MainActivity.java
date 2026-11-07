@@ -938,11 +938,19 @@ public class MainActivity extends Activity {
         editor.setSelection(next);
     }
 
+    private int adBlockStateLabel() {
+        if (!adBlockEnabled) return R.string.tracker_block_disabled;
+        if (nativeFiltersReady) return R.string.tracker_block_enabled;
+        synchronized (this) {
+            return adBlockInitializationRunning
+                    ? R.string.tracker_block_loading : R.string.tracker_block_reduced;
+        }
+    }
+
     private void showMenu() {
         String popupLabel = getString(popupsBlocked
                 ? R.string.popup_block_enabled : R.string.popup_block_disabled);
-        String adBlockLabel = getString(adBlockEnabled
-                ? R.string.tracker_block_enabled : R.string.tracker_block_disabled);
+        String adBlockLabel = getString(adBlockStateLabel());
         String[] entries = {getString(R.string.menu_forward), popupLabel, adBlockLabel,
                 getString(R.string.menu_search_engine, SEARCH_ENGINES[searchEngineIndex()][0]),
                 getString(R.string.menu_clear_data), getString(R.string.menu_about)};
@@ -1077,13 +1085,7 @@ public class MainActivity extends Activity {
                 String[] lists = readCachedFilterLists();
                 boolean hasCachedLists = lists[0] != null || lists[1] != null;
                 if (hasCachedLists && adBlockEnabled) installFilterLists(lists);
-                long lastUpdate = getPreferences(MODE_PRIVATE)
-                        .getLong("filterListsUpdatedAt", 0);
-                if (lists[0] == null || lists[1] == null || !hasCachedLists
-                        || (regionalListUrl() != null && lists[REGIONAL_LIST] == null)
-                        || System.currentTimeMillis() - lastUpdate >= FILTER_LIST_MAX_AGE) {
-                    updateFilterLists(lists);
-                }
+                if (filterListsStale(lists)) updateFilterLists(lists);
             } finally {
                 boolean retry;
                 synchronized (this) {
@@ -1127,32 +1129,44 @@ public class MainActivity extends Activity {
         return lists;
     }
 
+    private boolean filterListStale(int index, String[] cachedLists) {
+        if (index == REGIONAL_LIST && regionalListUrl() == null) return false;
+        if (cachedLists[index] == null) return true;
+        long updatedAt = getPreferences(MODE_PRIVATE).getLong("filterListUpdatedAt" + index, 0);
+        return System.currentTimeMillis() - updatedAt >= FILTER_LIST_MAX_AGE;
+    }
+
+    private boolean filterListsStale(String[] cachedLists) {
+        for (int i = 0; i < FILTER_LIST_FILES.length; i++) {
+            if (filterListStale(i, cachedLists)) return true;
+        }
+        return false;
+    }
+
     private void updateFilterLists(String[] cachedLists) {
         String[] urls = {EASYLIST_URL, EASYPRIVACY_URL, regionalListUrl()};
         boolean updated = false;
         for (int i = 0; i < urls.length; i++) {
             if (!adBlockEnabled) return;
-            if (urls[i] == null) continue;
+            if (urls[i] == null || !filterListStale(i, cachedLists)) continue;
             String downloaded = downloadFilterList(urls[i]);
             if (downloaded == null) continue;
+            // Keep the download in memory even if storage is full.
+            cachedLists[i] = downloaded;
+            updated = true;
             try {
                 saveFilterList(i, downloaded);
-                if (i == REGIONAL_LIST) {
-                    getPreferences(MODE_PRIVATE).edit()
-                            .putString("regionalListLanguage", Locale.getDefault().getLanguage())
-                            .apply();
-                }
-                cachedLists[i] = downloaded;
-                updated = true;
             } catch (IOException ignored) {
-                // Keep using the in-memory copy if storage is unavailable.
+                continue;
             }
+            android.content.SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE).edit()
+                    .putLong("filterListUpdatedAt" + i, System.currentTimeMillis());
+            if (i == REGIONAL_LIST) {
+                editor.putString("regionalListLanguage", Locale.getDefault().getLanguage());
+            }
+            editor.apply();
         }
-        if (updated && adBlockEnabled) {
-            installFilterLists(cachedLists);
-            getPreferences(MODE_PRIVATE).edit()
-                    .putLong("filterListsUpdatedAt", System.currentTimeMillis()).apply();
-        }
+        if (updated && adBlockEnabled) installFilterLists(cachedLists);
     }
 
     private String downloadFilterList(String url) {
@@ -1208,24 +1222,17 @@ public class MainActivity extends Activity {
         return trimmed.length() >= 256 && trimmed.startsWith("[Adblock Plus ");
     }
 
+    // The running engine stays active until the new one is built, so a failed
+    // update never leaves the page without the full lists.
     private void installFilterLists(String[] lists) {
         boolean hasList = false;
         for (String list : lists) hasList |= list != null && !list.isEmpty();
         if (!hasList || !adBlockEnabled) return;
-        nativeClearFilters();
-        nativeFiltersReady = false;
         nativeBeginFilterLists();
-        boolean added = false;
         for (String list : lists) {
-            if (list != null && !list.isEmpty()) {
-                if (!nativeAddFilterList(list)) {
-                    nativeClearFilters();
-                    return;
-                }
-                added = true;
-            }
+            if (list != null && !list.isEmpty() && !nativeAddFilterList(list)) return;
         }
-        nativeFiltersReady = added && adBlockEnabled && nativeFinishFilterLists();
+        if (adBlockEnabled && nativeFinishFilterLists()) nativeFiltersReady = true;
     }
 
     private void showConfirmation(String title, String message, String acceptLabel,
