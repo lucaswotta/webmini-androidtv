@@ -143,9 +143,12 @@ public class MainActivity extends Activity {
     private boolean cursorTickScheduled;
     private volatile String currentUrl = HOME;
     private volatile boolean nativeFiltersReady;
+    // False while the engine was built without EasyList or EasyPrivacy.
+    private volatile boolean nativeFiltersComplete;
     // The native engine is process-wide; only the newest Activity may replace or clear it.
     private static final java.util.concurrent.atomic.AtomicInteger ENGINE_OWNER =
             new java.util.concurrent.atomic.AtomicInteger();
+    private static final Object ENGINE_LOCK = new Object();
     private int engineOwner;
     private final java.util.Set<String> exemptOrigins =
             java.util.Collections.synchronizedSet(new java.util.HashSet<>());
@@ -944,7 +947,7 @@ public class MainActivity extends Activity {
             return super.dispatchKeyEvent(event);
         }
         // The home screen has no page to point at, so the D-pad moves focus between its buttons.
-        if (tvMode && !(homePage && menuPanel == null)) {
+        if (tvMode && menuPanel == null && !homePage) {
             int key = event.getKeyCode();
             if (key == KeyEvent.KEYCODE_DPAD_UP || key == KeyEvent.KEYCODE_DPAD_DOWN
                     || key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT
@@ -1005,7 +1008,7 @@ public class MainActivity extends Activity {
 
     private int adBlockStateLabel() {
         if (!adBlockEnabled) return R.string.tracker_block_disabled;
-        if (nativeFiltersReady) return R.string.tracker_block_enabled;
+        if (nativeFiltersReady && nativeFiltersComplete) return R.string.tracker_block_enabled;
         synchronized (this) {
             return adBlockInitializationRunning
                     ? R.string.tracker_block_loading : R.string.tracker_block_reduced;
@@ -1065,7 +1068,7 @@ public class MainActivity extends Activity {
             initializeAdblock();
         } else {
             nativeFiltersReady = false;
-            adBlockExecutor.execute(MainActivity::nativeClearFilters);
+            adBlockExecutor.execute(this::clearEngineIfOwner);
         }
         if (webView != null) reloadPage();
     }
@@ -1263,13 +1266,16 @@ public class MainActivity extends Activity {
     }
 
     private void updateFilterLists(String[] cachedLists) {
-        String[] urls = {EASYLIST_URL, EASYPRIVACY_URL, regionalListUrl()};
+        String regionalLanguage = regionalLanguage();
+        String[] urls = {EASYLIST_URL, EASYPRIVACY_URL, FilterLists.regionalUrl(regionalLanguage)};
         boolean updated = false;
         for (int i = 0; i < urls.length; i++) {
             if (!adBlockEnabled) return;
             if (urls[i] == null || !filterListStale(i, cachedLists)) continue;
             String downloaded = downloadFilterList(urls[i]);
             if (downloaded == null) continue;
+            // The user may have switched region while this list downloaded.
+            if (i == REGIONAL_LIST && !regionalLanguage.equals(regionalLanguage())) continue;
             // Keep the download in memory even if storage is full.
             cachedLists[i] = downloaded;
             updated = true;
@@ -1281,7 +1287,7 @@ public class MainActivity extends Activity {
             android.content.SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE).edit()
                     .putLong("filterListUpdatedAt" + i, System.currentTimeMillis());
             if (i == REGIONAL_LIST) {
-                editor.putString("regionalListLanguage", regionalLanguage());
+                editor.putString("regionalListLanguage", regionalLanguage);
             }
             editor.apply();
         }
@@ -1337,16 +1343,31 @@ public class MainActivity extends Activity {
     }
 
     // The running engine stays active until the new one is built, so a failed
-    // update never leaves the page without the full lists.
+    // update never leaves the page without the full lists. The lock covers the
+    // begin/add/finish sequence because the native pending set is process-wide.
     private void installFilterLists(String[] lists) {
         boolean hasList = false;
         for (String list : lists) hasList |= list != null && !list.isEmpty();
-        if (!hasList || !adBlockEnabled || engineOwner != ENGINE_OWNER.get()) return;
-        nativeBeginFilterLists();
-        for (String list : lists) {
-            if (list != null && !list.isEmpty() && !nativeAddFilterList(list)) return;
+        if (!hasList) return;
+        synchronized (ENGINE_LOCK) {
+            if (!adBlockEnabled || engineOwner != ENGINE_OWNER.get()) return;
+            nativeBeginFilterLists();
+            for (String list : lists) {
+                if (list != null && !list.isEmpty() && !nativeAddFilterList(list)) return;
+            }
+            if (adBlockEnabled && engineOwner == ENGINE_OWNER.get()
+                    && nativeFinishFilterLists()) {
+                nativeFiltersComplete = lists[0] != null && lists[1] != null;
+                nativeFiltersReady = true;
+            }
         }
-        if (adBlockEnabled && nativeFinishFilterLists()) nativeFiltersReady = true;
+    }
+
+    private void clearEngineIfOwner() {
+        synchronized (ENGINE_LOCK) {
+            if (engineOwner != ENGINE_OWNER.get()) return;
+            nativeClearFilters();
+        }
     }
 
     private void showConfirmation(String title, String message, String acceptLabel,
@@ -1447,6 +1468,8 @@ public class MainActivity extends Activity {
         }
         root.addView(menuPanel, new FrameLayout.LayoutParams(-1, -1));
         cursorView.bringToFront();
+        // The D-pad moves focus inside the menu; start on the first entry.
+        if (tvMode && list.getChildCount() > 0) list.getChildAt(0).requestFocus();
     }
 
     private void closeMenu() {
@@ -1564,11 +1587,11 @@ public class MainActivity extends Activity {
         adBlockEnabled = false;
         nativeFiltersReady = false;
         if (Build.VERSION.SDK_INT >= 24) {
-            ServiceWorkerController.getInstance().setServiceWorkerClient(null);
+            if (engineOwner == ENGINE_OWNER.get()) {
+                ServiceWorkerController.getInstance().setServiceWorkerClient(null);
+            }
         }
-        adBlockExecutor.execute(() -> {
-            if (engineOwner == ENGINE_OWNER.get()) nativeClearFilters();
-        });
+        adBlockExecutor.execute(this::clearEngineIfOwner);
         adBlockExecutor.shutdown();
         super.onDestroy();
     }
