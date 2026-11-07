@@ -13,6 +13,15 @@ Navegador leve, de aba única, para Android TV, que bloqueia anúncios, rastread
 
 [Baixar](#instalação) · [Recursos](#recursos) · [Controle remoto](#controle-remoto) · [Privacidade](#privacidade) · [Compilar](#compilar) · [English](README.md)
 
+
+<table>
+<tr>
+<td align="center" width="33%"><a href="https://github.com/lucaswotta/webmini-androidtv/releases/latest/download/WebMini-universal.apk"><img src="https://img.shields.io/badge/Baixar-APK-3ddc84?style=for-the-badge&logo=android&logoColor=white" alt="Baixar APK"></a><br><sub>Download direto, APK universal</sub></td>
+<td align="center" width="33%"><a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/lucaswotta/webmini-androidtv"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="64"></a><br><sub>Atualiza sozinho pelas releases do GitHub</sub></td>
+<td align="center" width="33%"><a href="#pelo-app-downloader"><img src="https://img.shields.io/badge/Downloader-3325686-1e6fe0?style=for-the-badge" alt="Downloader 3325686"></a><br><sub>TV sem teclado: digite o código</sub></td>
+</tr>
+</table>
+
 <img src="docs/images/hero.png" alt="WebMini numa TV mostrando um artigo da Wikipédia com o ponteiro do controle remoto" width="900">
 
 </div>
@@ -115,7 +124,8 @@ As listas de filtro são baixadas por HTTPS de `easylist.to`, atualizadas a cada
 
 - Barra de endereço que aceita URL ou pesquisa no Google.
 - Voltar, avançar, recarregar e início.
-- Favoritos na tela inicial.
+- Até 4 favoritos na tela inicial, para a página caber sempre na tela, sem rolagem.
+- Limpar cache pelo menu de opções. O cache também é apagado toda vez que o app fecha.
 - Vídeo em tela cheia.
 - Temas claro e escuro do sistema no celular; interface preta na TV.
 
@@ -140,7 +150,8 @@ Fica guardado no aparelho, no armazenamento privado do app:
 
 - favoritos e as duas opções de bloqueio;
 - as cópias de EasyList e EasyPrivacy;
-- cookies, cache e armazenamento dos sites, geridos pela WebView do Android. Cookies de terceiros são recusados.
+- cookies e armazenamento dos sites, geridos pela WebView do Android. Cookies de terceiros são recusados;
+- o cache das páginas, que o WebMini apaga quando o app fecha e sob demanda pelo menu de opções.
 
 Os dados do app ficam fora do backup na nuvem, da transferência entre aparelhos e do `adb backup`. Para apagar tudo, abra Configurações > Apps > WebMini > Limpar armazenamento.
 

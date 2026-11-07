@@ -13,6 +13,15 @@ A lightweight, single-tab web browser for Android TV that blocks ads, trackers a
 
 [Download](#install) · [Features](#features) · [Remote control](#remote-control) · [Privacy](#privacy) · [Build](#build) · [Português](README.pt-BR.md)
 
+
+<table>
+<tr>
+<td align="center" width="33%"><a href="https://github.com/lucaswotta/webmini-androidtv/releases/latest/download/WebMini-universal.apk"><img src="https://img.shields.io/badge/Download-APK-3ddc84?style=for-the-badge&logo=android&logoColor=white" alt="Download APK"></a><br><sub>Direct download, universal APK</sub></td>
+<td align="center" width="33%"><a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/lucaswotta/webmini-androidtv"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="64"></a><br><sub>Auto-updates from GitHub releases</sub></td>
+<td align="center" width="33%"><a href="#with-the-downloader-app"><img src="https://img.shields.io/badge/Downloader-3325686-1e6fe0?style=for-the-badge" alt="Downloader 3325686"></a><br><sub>TV without keyboard: type the code</sub></td>
+</tr>
+</table>
+
 <img src="docs/images/hero.png" alt="WebMini on a TV showing a Wikipedia article with the remote-controlled pointer" width="900">
 
 </div>
@@ -115,7 +124,8 @@ Filter lists are downloaded over HTTPS from `easylist.to`, refreshed every 7 day
 
 - Address bar that accepts a URL or a Google search.
 - Back, forward, reload and home.
-- Favorites on the home screen.
+- Up to 4 favorites on the home screen, so the page always fits the screen without scrolling.
+- Clear cache from the options menu. The cache is also erased every time the app closes.
 - Full-screen video.
 - System light and dark themes on phones; a black interface on TV.
 
@@ -140,7 +150,8 @@ Stored on the device, in the app's private storage:
 
 - favorites and the two blocking options;
 - the cached EasyList and EasyPrivacy files;
-- cookies, cache and site storage, managed by Android System WebView. Third-party cookies are refused.
+- cookies and site storage, managed by Android System WebView. Third-party cookies are refused;
+- the page cache, which WebMini erases when the app closes and on demand from the options menu.
 
 App data is excluded from cloud backup, device-to-device transfer and `adb backup`. To erase everything, open Settings > Apps > WebMini > Clear storage.
 
