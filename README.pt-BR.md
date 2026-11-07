@@ -100,8 +100,10 @@ Ative as opções do desenvolvedor e a depuração pela rede na TV, depois:
 
 ```sh
 adb connect <ip-da-tv>:5555
-adb install WebMini-universal.apk
+adb install -r WebMini-universal.apk
 ```
+
+`-r` atualiza uma cópia instalada e preserva os dados; sem ele, o comando falha quando o WebMini já está instalado. O APK precisa trazer o certificado de [Certificado de assinatura](#certificado-de-assinatura), ou o Android recusa a atualização, e desinstalar antes apaga favoritos e opções.
 
 O WebMini se registra como navegador, então links abertos por outros apps podem abrir nele.
 
