@@ -41,8 +41,8 @@
     <string name="menu_search_engine">Buscador: %s</string>
     <string name="menu_clear_data">Borrar datos</string>
     <string name="clear_cache">Caché</string>
-    <string name="clear_site_data">Cookies y datos de sitios</string>
-    <string name="clear_everything">Todo</string>
+    <string name="clear_site_data">Cookies y datos de sitios (cierra sesiones)</string>
+    <string name="clear_everything">Caché, cookies y datos de sitios</string>
     <string name="data_cleared">Datos borrados</string>
     <string name="voice_search">Búsqueda por voz</string>
     <string name="voice_unavailable">La búsqueda por voz no está disponible en este dispositivo</string>
@@ -50,4 +50,11 @@
     <string name="tracker_block_reduced">Bloquear anuncios y rastreadores: solo lista básica</string>
     <string name="page_failed">No se pudo cargar la página.</string>
     <string name="edit_address">Editar dirección</string>
+    <string name="site_filter_on">Filtro en %s: activado</string>
+    <string name="site_filter_off">Filtro en %s: desactivado</string>
+    <string name="regional_list">Lista regional: %s</string>
+    <string name="regional_auto">automática</string>
+    <string name="regional_pt">portugués</string>
+    <string name="regional_es">español</string>
+    <string name="regional_none">ninguna</string>
 </resources>

@@ -42,8 +42,8 @@
     <string name="menu_search_engine">Search engine: %s</string>
     <string name="menu_clear_data">Clear data</string>
     <string name="clear_cache">Cache</string>
-    <string name="clear_site_data">Cookies and site data</string>
-    <string name="clear_everything">Everything</string>
+    <string name="clear_site_data">Cookies and site data (signs you out)</string>
+    <string name="clear_everything">Cache, cookies and site data</string>
     <string name="data_cleared">Data cleared</string>
     <string name="voice_search">Voice search</string>
     <string name="voice_unavailable">Voice search is not available on this device</string>
@@ -51,4 +51,11 @@
     <string name="tracker_block_reduced">Block ads and trackers: basic list only</string>
     <string name="page_failed">The page could not be loaded.</string>
     <string name="edit_address">Edit address</string>
+    <string name="site_filter_on">Filter on %s: on</string>
+    <string name="site_filter_off">Filter on %s: off</string>
+    <string name="regional_list">Regional list: %s</string>
+    <string name="regional_auto">automatic</string>
+    <string name="regional_pt">Portuguese</string>
+    <string name="regional_es">Spanish</string>
+    <string name="regional_none">none</string>
 </resources>

@@ -144,6 +144,12 @@ public class MainActivity extends Activity {
     private boolean cursorTickScheduled;
     private volatile String currentUrl = HOME;
     private volatile boolean nativeFiltersReady;
+    // The native engine is process-wide; only the newest Activity may replace or clear it.
+    private static final java.util.concurrent.atomic.AtomicInteger ENGINE_OWNER =
+            new java.util.concurrent.atomic.AtomicInteger();
+    private int engineOwner;
+    private final java.util.Set<String> exemptOrigins =
+            java.util.Collections.synchronizedSet(new java.util.HashSet<>());
     private final ExecutorService adBlockExecutor = Executors.newSingleThreadExecutor();
     private boolean adBlockInitializationRunning;
     private boolean adBlockReloadRequested;
@@ -173,6 +179,7 @@ public class MainActivity extends Activity {
         tvMode = getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
         if (tvMode) setTheme(R.style.TvTheme);
         super.onCreate(savedInstanceState);
+        engineOwner = ENGINE_OWNER.incrementAndGet();
         adBlockEnabled = getPreferences(MODE_PRIVATE).getBoolean("adBlockEnabled", true);
         popupsBlocked = getPreferences(MODE_PRIVATE).getBoolean("popupsBlocked", true);
         loadFavorites();
@@ -432,12 +439,13 @@ public class MainActivity extends Activity {
             empty.setTextSize(14);
             landing.addView(empty, new LinearLayout.LayoutParams(-1, -2));
         } else {
-            for (int i = 0; i < favorites.size(); i += 2) {
+            int shownFavorites = Math.min(favorites.size(), MAX_FAVORITES);
+            for (int i = 0; i < shownFavorites; i += 2) {
                 LinearLayout row = new LinearLayout(this);
                 LinearLayout.LayoutParams rowSize = new LinearLayout.LayoutParams(-1, dp(72));
                 rowSize.setMargins(-dp(4), 0, -dp(4), dp(4));
                 landing.addView(row, rowSize);
-                for (int slot = i; slot < Math.min(i + 2, favorites.size()); slot++) {
+                for (int slot = i; slot < Math.min(i + 2, shownFavorites); slot++) {
                     String url = favorites.get(slot);
                     Button item = new Button(this);
                     String host = Uri.parse(url).getHost();
@@ -563,8 +571,7 @@ public class MainActivity extends Activity {
             JSONArray urls = new JSONArray(saved);
             for (int i = 0; i < urls.length(); i++) {
                 String url = urls.optString(i);
-                if (favorites.size() < MAX_FAVORITES
-                        && (url.startsWith("https://") || url.startsWith("http://"))) {
+                if (url.startsWith("https://") || url.startsWith("http://")) {
                     favorites.add(url);
                 }
             }
@@ -1020,23 +1027,73 @@ public class MainActivity extends Activity {
                         .putBoolean("popupsBlocked", popupsBlocked).apply();
                 if (webView != null) applyPopupPolicy(webView.getSettings());
             }
-            if (which == 2) {
-                adBlockEnabled = !adBlockEnabled;
-                getPreferences(MODE_PRIVATE).edit()
-                        .putBoolean("adBlockEnabled", adBlockEnabled).apply();
-                if (adBlockEnabled) {
-                    initializeAdblock();
-                } else {
-                    nativeFiltersReady = false;
-                    adBlockExecutor.execute(MainActivity::nativeClearFilters);
-                }
-                if (webView != null) reloadPage();
-            }
+            if (which == 2) adBlockMenu();
             if (which == 3) chooseSearchEngine();
             if (which == 4) clearDataMenu();
             if (which == 5) {
                 navigateTo(ABOUT);
             }
+        });
+    }
+
+    private void adBlockMenu() {
+        String origin = NavigationPolicy.origin(currentUrl);
+        boolean siteMenu = adBlockEnabled && !homePage && origin != null;
+        ArrayList<String> labels = new ArrayList<>();
+        ArrayList<Runnable> actions = new ArrayList<>();
+        labels.add(getString(adBlockStateLabel()));
+        actions.add(this::toggleAdBlock);
+        if (siteMenu) {
+            boolean exempt = exemptOrigins.contains(origin);
+            labels.add(getString(exempt ? R.string.site_filter_off : R.string.site_filter_on,
+                    Uri.parse(currentUrl).getHost()));
+            actions.add(() -> {
+                if (exempt) exemptOrigins.remove(origin);
+                else exemptOrigins.add(origin);
+                reloadPage();
+            });
+        }
+        labels.add(getString(R.string.regional_list, regionalListName()));
+        actions.add(this::chooseRegionalList);
+        showChoices(labels.toArray(new String[0]), which -> actions.get(which).run());
+    }
+
+    private void toggleAdBlock() {
+        adBlockEnabled = !adBlockEnabled;
+        getPreferences(MODE_PRIVATE).edit().putBoolean("adBlockEnabled", adBlockEnabled).apply();
+        if (adBlockEnabled) {
+            initializeAdblock();
+        } else {
+            nativeFiltersReady = false;
+            adBlockExecutor.execute(MainActivity::nativeClearFilters);
+        }
+        if (webView != null) reloadPage();
+    }
+
+    private static final String[] REGIONAL_CHOICES = {"auto", "pt", "es", "none"};
+
+    private String regionalChoice() {
+        String saved = getPreferences(MODE_PRIVATE).getString("regionalList", "auto");
+        for (String choice : REGIONAL_CHOICES) if (choice.equals(saved)) return saved;
+        return "auto";
+    }
+
+    private String regionalListName() {
+        switch (regionalChoice()) {
+            case "pt": return getString(R.string.regional_pt);
+            case "es": return getString(R.string.regional_es);
+            case "none": return getString(R.string.regional_none);
+            default: return getString(R.string.regional_auto);
+        }
+    }
+
+    private void chooseRegionalList() {
+        String[] names = {getString(R.string.regional_auto), getString(R.string.regional_pt),
+                getString(R.string.regional_es), getString(R.string.regional_none)};
+        showChoices(names, which -> {
+            getPreferences(MODE_PRIVATE).edit()
+                    .putString("regionalList", REGIONAL_CHOICES[which]).apply();
+            if (adBlockEnabled) initializeAdblock();
         });
     }
 
@@ -1118,6 +1175,8 @@ public class MainActivity extends Activity {
 
     private WebResourceResponse filterNetworkRequest(WebResourceRequest request) {
         if (!adBlockEnabled || request.isForMainFrame()) return null;
+        String pageOrigin = NavigationPolicy.origin(currentUrl);
+        if (pageOrigin != null && exemptOrigins.contains(pageOrigin)) return null;
         String resourceUrl = request.getUrl().toString();
         boolean blocked = nativeFiltersReady && nativeShouldBlock(resourceUrl, currentUrl,
                 requestType(request), request.getMethod());
@@ -1156,8 +1215,14 @@ public class MainActivity extends Activity {
         });
     }
 
+    private String regionalLanguage() {
+        String choice = regionalChoice();
+        if (choice.equals("auto")) return Locale.getDefault().getLanguage();
+        return choice.equals("none") ? "" : choice;
+    }
+
     private String regionalListUrl() {
-        switch (Locale.getDefault().getLanguage()) {
+        switch (regionalLanguage()) {
             case "pt": return "https://easylist-downloads.adblockplus.org/easylistportuguese.txt";
             case "es": return "https://easylist-downloads.adblockplus.org/easylistspanish.txt";
             default: return null;
@@ -1165,7 +1230,7 @@ public class MainActivity extends Activity {
     }
 
     private boolean regionalListCached() {
-        return regionalListUrl() != null && Locale.getDefault().getLanguage().equals(
+        return regionalListUrl() != null && regionalLanguage().equals(
                 getPreferences(MODE_PRIVATE).getString("regionalListLanguage", ""));
     }
 
@@ -1220,7 +1285,7 @@ public class MainActivity extends Activity {
             android.content.SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE).edit()
                     .putLong("filterListUpdatedAt" + i, System.currentTimeMillis());
             if (i == REGIONAL_LIST) {
-                editor.putString("regionalListLanguage", Locale.getDefault().getLanguage());
+                editor.putString("regionalListLanguage", regionalLanguage());
             }
             editor.apply();
         }
@@ -1285,7 +1350,7 @@ public class MainActivity extends Activity {
     private void installFilterLists(String[] lists) {
         boolean hasList = false;
         for (String list : lists) hasList |= list != null && !list.isEmpty();
-        if (!hasList || !adBlockEnabled) return;
+        if (!hasList || !adBlockEnabled || engineOwner != ENGINE_OWNER.get()) return;
         nativeBeginFilterLists();
         for (String list : lists) {
             if (list != null && !list.isEmpty() && !nativeAddFilterList(list)) return;
@@ -1510,7 +1575,9 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 24) {
             ServiceWorkerController.getInstance().setServiceWorkerClient(null);
         }
-        adBlockExecutor.execute(MainActivity::nativeClearFilters);
+        adBlockExecutor.execute(() -> {
+            if (engineOwner == ENGINE_OWNER.get()) nativeClearFilters();
+        });
         adBlockExecutor.shutdown();
         super.onDestroy();
     }
