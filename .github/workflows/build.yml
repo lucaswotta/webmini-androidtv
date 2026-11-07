@@ -12,8 +12,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: 17
@@ -21,13 +21,29 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018" "platforms;android-36" > /dev/null
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
-      - name: Install Rust targets and cargo-ndk
+      - name: Install Rust and cargo-ndk
         run: |
-          rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-          cargo install cargo-ndk --locked
-      - name: Build and lint
-        run: ./gradlew --no-daemon :app:assembleDebug :app:lintRelease
-      - uses: actions/upload-artifact@v5
+          rustup toolchain install 1.99.1 --profile minimal --target aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+          rustup default 1.99.1
+          cargo install cargo-ndk --version 4.1.2 --locked
+      - name: Test, lint and build
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:lintRelease :app:assembleDebug :app:assembleRelease
+      - name: Check native library in every APK
+        run: |
+          for apk in app/build/outputs/apk/release/*.apk; do
+            case "$apk" in
+              *universal*) abis="armeabi-v7a arm64-v8a x86_64" ;;
+              *armeabi-v7a*) abis="armeabi-v7a" ;;
+              *arm64-v8a*) abis="arm64-v8a" ;;
+              *x86_64*) abis="x86_64" ;;
+              *) echo "unexpected APK $apk"; exit 1 ;;
+            esac
+            for abi in $abis; do
+              unzip -l "$apk" | grep -q "lib/$abi/libwebmini_adblock.so" \
+                || { echo "$apk is missing the $abi library"; exit 1; }
+            done
+          done
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: webmini-debug-apks
           path: app/build/outputs/apk/debug/*.apk

@@ -944,7 +944,8 @@ public class MainActivity extends Activity {
             }
             return super.dispatchKeyEvent(event);
         }
-        if (tvMode) {
+        // The home screen has no page to point at, so the D-pad moves focus between its buttons.
+        if (tvMode && !(homePage && menuPanel == null)) {
             int key = event.getKeyCode();
             if (key == KeyEvent.KEYCODE_DPAD_UP || key == KeyEvent.KEYCODE_DPAD_DOWN
                     || key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT

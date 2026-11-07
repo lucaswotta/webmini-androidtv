@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      ORG_GRADLE_PROJECT_webminiStoreFile: ${{ github.workspace }}/release.jks
+      ORG_GRADLE_PROJECT_webminiStorePassword: ${{ secrets.WEBMINI_STORE_PASSWORD }}
+      ORG_GRADLE_PROJECT_webminiKeyAlias: ${{ secrets.WEBMINI_KEY_ALIAS }}
+      ORG_GRADLE_PROJECT_webminiKeyPassword: ${{ secrets.WEBMINI_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Install Android NDK
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018" "platforms;android-36" > /dev/null
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+      - name: Install Rust and cargo-ndk
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal --target aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+          rustup default 1.99.1
+          cargo install cargo-ndk --version 4.1.2 --locked
+      - name: Restore signing key
+        run: echo "${{ secrets.WEBMINI_KEYSTORE_BASE64 }}" | base64 -d > release.jks
+      - name: Test and build signed release
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleRelease
+      - name: Collect and verify assets
+        run: |
+          mkdir dist
+          for abi in universal armeabi-v7a arm64-v8a x86_64; do
+            cp "app/build/outputs/apk/release/app-$abi-release.apk" "dist/WebMini-$abi.apk"
+            "$ANDROID_HOME"/build-tools/36.0.0/apksigner verify --print-certs "dist/WebMini-$abi.apk" | grep "SHA-256"
+          done
+          (cd dist && sha256sum WebMini-*.apk > SHA256SUMS.txt)
+          rm release.jks
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '$0 ~ "^## "v" " {f=1; next} /^## / {f=0} f' CHANGELOG.md > notes.md
+          gh release create "$GITHUB_REF_NAME" dist/* --title "WebMini $version" --notes-file notes.md --verify-tag
