@@ -78,6 +78,8 @@ To find your device's architecture, run `adb shell getprop ro.product.cpu.abilis
 2. In the TV settings, allow Downloader to install unknown apps.
 3. Open Downloader and enter code `3325686`.
 
+   ![Downloader resolving code 3325686 to the WebMini APK on the releases page](docs/images/downloader.png)
+
    Or use the direct link:
 
    ```text
