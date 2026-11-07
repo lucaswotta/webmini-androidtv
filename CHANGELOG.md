@@ -4,7 +4,7 @@
 
 ### Added
 
-- Clear cache entry in the options menu; the page cache is also erased when the app closes.
+- Clear cache entry in the options menu; the page cache is also erased when the app is closed normally.
 - Obtainium badge and Downloader code at the top of the README.
 - Search engine choice (Google, DuckDuckGo, Bing, Brave); queries use the selected engine.
 - Voice search using the speech recognizer installed on the device (audio is processed by that recognizer).

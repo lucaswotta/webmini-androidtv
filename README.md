@@ -122,7 +122,7 @@ WebMini registers as a browser, so links opened by other apps can open in it.
 | Malicious sites | Android System WebView Safe Browsing is on (Android 8.0 and later). |
 | Crashed pages | Recovers when the page renderer stops, without closing the app. |
 
-Filter lists are downloaded over HTTPS from `easylist.to` and, when a regional list is enabled, `easylist-downloads.adblockplus.org`, refreshed every 7 days, limited to 5 MB each, checked for a valid header and replaced atomically. The regional list can be set to automatic, Portuguese, Spanish or none in Menu > Block ads and trackers > Regional list. Menu > Block ads and trackers also provides "Filter on this site" to create an exception for the current session only. The menu displays "loading lists" while lists are compiled and "basic list only" when running on fallback rules. Both blocking options can be turned off from the options menu.
+Filter lists are downloaded over HTTPS from `easylist.to` and, when a regional list is enabled, `easylist-downloads.adblockplus.org`, refreshed every 7 days (a list that fails to download is retried on the next launch), limited to 5 MB each, checked for a valid header and replaced atomically. The regional list can be set to automatic, Portuguese, Spanish or none in Menu > Block ads and trackers > Regional list. Menu > Block ads and trackers also provides "Filter on this site" to create an exception for the current session only. The menu displays "loading lists" while lists are compiled and "basic list only" when running on fallback rules. Both blocking options can be turned off from the options menu.
 
 ### Browsing
 
@@ -130,7 +130,7 @@ Filter lists are downloaded over HTTPS from `easylist.to` and, when a regional l
 - Voice search using the remote microphone, performed by the speech recognizer installed on the device (audio is processed by that recognizer).
 - Back, forward, reload and home.
 - Up to 4 favorites are shown on the home screen so the page always fits the screen without scrolling; favorites beyond 4 remain stored.
-- Clear cache from the options menu. The cache is also erased every time the app closes.
+- Clear cache from the options menu. The cache is also erased when the app is closed normally; keeping the cache increases device storage use.
 - Full-screen video.
 - System light and dark themes on phones; a black interface on TV.
 
@@ -156,13 +156,13 @@ Stored on the device, in the app's private storage:
 - preferences (blocking options, chosen search engine and regional list choice) and favorites;
 - the cached EasyList, EasyPrivacy and regional list files;
 - cookies and site storage, managed by Android System WebView. Third-party cookies are refused;
-- the page cache, which WebMini erases when the app closes and on demand from the options menu.
+- the page cache, which WebMini erases when the app is closed normally and on demand from the options menu; keeping the cache increases device storage use.
 
 App data is excluded from cloud backup, device-to-device transfer and `adb backup`. To erase everything, open Settings > Apps > WebMini > Clear storage.
 
 Requests made outside the pages you visit:
 
-- `easylist.to` and, when a regional list is enabled, `easylist-downloads.adblockplus.org`, at most once every 7 days, while ad blocking is on;
+- `easylist.to` and, when a regional list is enabled, `easylist-downloads.adblockplus.org`, every 7 days while ad blocking is on (a list that fails to download is retried on the next launch);
 - Google Safe Browsing, through Android System WebView, on Android 8.0 and later;
 - the chosen search engine (Google, DuckDuckGo, Bing or Brave), when you search from the home screen or the address bar.
 
