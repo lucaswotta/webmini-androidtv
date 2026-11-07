@@ -43,7 +43,7 @@
     <string name="menu_clear_data">Clear data</string>
     <string name="clear_cache">Cache</string>
     <string name="clear_site_data">Cookies and site data</string>
-    <string name="clear_everything">Everything</string>
+    <string name="clear_everything">Cache, cookies and site data</string>
     <string name="data_cleared">Data cleared</string>
     <string name="voice_search">Voice search</string>
     <string name="voice_unavailable">Voice search is not available on this device</string>

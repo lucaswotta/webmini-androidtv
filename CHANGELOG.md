@@ -8,7 +8,7 @@
 - Obtainium badge and Downloader code at the top of the README.
 - Search engine choice (Google, DuckDuckGo, Bing, Brave) and voice search.
 - Regional filter lists for Portuguese and Spanish devices.
-- Clear data menu: cache, cookies and site data, or everything.
+- Clear data menu: cache only, cookies and site data only, or all three together.
 
 ### Changed
 

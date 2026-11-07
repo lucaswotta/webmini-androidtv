@@ -42,7 +42,7 @@
     <string name="menu_clear_data">Borrar datos</string>
     <string name="clear_cache">Caché</string>
     <string name="clear_site_data">Cookies y datos de sitios</string>
-    <string name="clear_everything">Todo</string>
+    <string name="clear_everything">Caché, cookies y datos de sitios</string>
     <string name="data_cleared">Datos borrados</string>
     <string name="voice_search">Búsqueda por voz</string>
     <string name="voice_unavailable">La búsqueda por voz no está disponible en este dispositivo</string>
