@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Clear cache entry in the options menu; the page cache is also erased when the app closes.
+- Obtainium badge and Downloader code at the top of the README.
+
+### Changed
+
+- Favorites are limited to 4, the most that fit the home screen at 720p without scrolling. Existing favorites beyond 4 are hidden on the next launch and dropped when favorites are next saved.
+
 ## 0.2.0 (2026-10-24)
 
 First signed release.

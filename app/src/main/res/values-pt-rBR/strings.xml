@@ -37,4 +37,7 @@
     <string name="download_description">Download solicitado no WebMini</string>
     <string name="download_started">Download iniciado</string>
     <string name="download_permission_denied">Permissão negada; download cancelado</string>
+    <string name="favorites_full">Limite de %d favoritos. Remova um para adicionar outro.</string>
+    <string name="menu_clear_cache">Limpar cache</string>
+    <string name="cache_cleared">Cache limpo</string>
 </resources>
