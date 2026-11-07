@@ -89,7 +89,6 @@ public class MainActivity extends Activity {
             {"Bing", "https://www.bing.com/search?q="},
             {"Brave", "https://search.brave.com/search?q="},
     };
-    private static final long FILTER_LIST_MAX_AGE = 7L * 24 * 60 * 60 * 1000;
     private static final int MAX_FILTER_LIST_BYTES = 5 * 1024 * 1024;
     private static final byte[] EMPTY_BODY = new byte[0];
     private static final String[] AD_HOSTS = {
@@ -1223,11 +1222,7 @@ public class MainActivity extends Activity {
     }
 
     private String regionalListUrl() {
-        switch (regionalLanguage()) {
-            case "pt": return "https://easylist-downloads.adblockplus.org/easylistportuguese.txt";
-            case "es": return "https://easylist-downloads.adblockplus.org/easylistspanish.txt";
-            default: return null;
-        }
+        return FilterLists.regionalUrl(regionalLanguage());
     }
 
     private boolean regionalListCached() {
@@ -1245,7 +1240,7 @@ public class MainActivity extends Activity {
                  ByteArrayOutputStream output = new ByteArrayOutputStream()) {
                 copyLimited(input, output);
                 lists[i] = output.toString(StandardCharsets.UTF_8.name());
-                if (!isValidFilterList(lists[i])) lists[i] = null;
+                if (!FilterLists.isValid(lists[i])) lists[i] = null;
             } catch (IOException ignored) {
                 lists[i] = null;
             }
@@ -1257,7 +1252,7 @@ public class MainActivity extends Activity {
         if (index == REGIONAL_LIST && regionalListUrl() == null) return false;
         if (cachedLists[index] == null) return true;
         long updatedAt = getPreferences(MODE_PRIVATE).getLong("filterListUpdatedAt" + index, 0);
-        return System.currentTimeMillis() - updatedAt >= FILTER_LIST_MAX_AGE;
+        return FilterLists.isStale(updatedAt, System.currentTimeMillis());
     }
 
     private boolean filterListsStale(String[] cachedLists) {
@@ -1307,7 +1302,7 @@ public class MainActivity extends Activity {
                  ByteArrayOutputStream output = new ByteArrayOutputStream()) {
                 copyLimited(input, output);
                 String contents = output.toString(StandardCharsets.UTF_8.name());
-                return isValidFilterList(contents) ? contents : null;
+                return FilterLists.isValid(contents) ? contents : null;
             }
         } catch (IOException ignored) {
             return null;
@@ -1339,11 +1334,6 @@ public class MainActivity extends Activity {
             temporary.delete();
             throw new IOException("Could not replace cached filter list");
         }
-    }
-
-    private boolean isValidFilterList(String contents) {
-        String trimmed = contents.trim();
-        return trimmed.length() >= 256 && trimmed.startsWith("[Adblock Plus ");
     }
 
     // The running engine stays active until the new one is built, so a failed
