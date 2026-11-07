@@ -79,7 +79,9 @@ Para descobrir a arquitetura do aparelho, rode `adb shell getprop ro.product.cpu
 
 ### Pelo Obtainium
 
-Com o Obtainium instalado, [toque aqui na TV para adicionar o WebMini](obtainium://add?url=https%3A%2F%2Fgithub.com%2Flucaswotta%2Fwebmini-androidtv). O Obtainium acompanha as releases e avisa quando houver uma atualização.
+[<img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="64">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/lucaswotta/webmini-androidtv)
+
+Com o Obtainium instalado, o selo adiciona o WebMini à lista de apps. O Obtainium acompanha as releases e avisa quando houver uma atualização.
 
 ### Pelo ADB
 
