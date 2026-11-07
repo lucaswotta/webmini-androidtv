@@ -103,6 +103,8 @@ adb connect <ip-da-tv>:5555
 adb install WebMini-universal.apk
 ```
 
+Para atualizar uma cópia instalada mantendo os dados, use `adb install -r WebMini-universal.apk`. O Android recusa a atualização se o APK foi assinado com outra chave.
+
 O WebMini se registra como navegador, então links abertos por outros apps podem abrir nele.
 
 ## Recursos
@@ -154,7 +156,7 @@ Fica guardado no aparelho, no armazenamento privado do app:
 - favoritos e as duas opções de bloqueio;
 - as cópias de EasyList e EasyPrivacy;
 - cookies e armazenamento dos sites, geridos pela WebView do Android. Cookies de terceiros são recusados;
-- o cache das páginas, que o WebMini apaga quando o app fecha e sob demanda pelo menu de opções.
+- o cache das páginas, que o WebMini apaga quando o app fecha e sob demanda pelo menu de opções. O custo é reabrir mais devagar os sites que você visita sempre; guardar o cache aumentaria o uso de armazenamento, que em aparelhos de 2 GB é o limite mais apertado.
 
 Os dados do app ficam fora do backup na nuvem, da transferência entre aparelhos e do `adb backup`. Para apagar tudo, abra Configurações > Apps > WebMini > Limpar armazenamento.
 
@@ -168,6 +170,7 @@ Requisições feitas fora das páginas que você visita:
 
 - O filtro age só nas requisições de rede. Anúncios bloqueados podem deixar espaço vazio na página, e anúncios servidos pelo próprio site, inclusive os de vídeo do YouTube, não são removidos.
 - Sites podem detectar que requisições foram bloqueadas.
+- A WebView do Android não repassa todas as requisições ao filtro: o interceptador vê a primeira URL de um recurso redirecionado, não a cadeia, e não cobre tudo o que um navegador com pilha de rede própria cobre. Um formulário POST para um endereço HTTP não passa pelo aviso de HTTP, porque a WebView não informa navegações POST a esse callback.
 - Há listas regionais só para português e espanhol, escolhidas pelo idioma do aparelho. Outros idiomas dependem das regras genéricas da EasyList.
 - O WebMini não torna a navegação anônima.
 
@@ -230,6 +233,10 @@ SHA-256: AB:E8:D3:13:DC:19:19:CB:B4:6A:E4:9B:DC:CF:2C:BC:35:37:66:AF:2A:B3:FD:25
 ```
 
 Confira um arquivo baixado com `apksigner verify --print-certs WebMini-universal.apk`.
+
+## Testes
+
+`./gradlew :app:testDebugUnitTest` roda os testes da política de navegação. O checklist manual e a matriz de aparelhos estão em [`docs/testing.md`](docs/testing.md).
 
 ## Contribuir
 

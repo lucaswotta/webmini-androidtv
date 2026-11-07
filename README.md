@@ -103,6 +103,8 @@ adb connect <tv-ip>:5555
 adb install WebMini-universal.apk
 ```
 
+To update an installed copy, keep its data and use `adb install -r WebMini-universal.apk`. Android refuses the update if the APK was signed with a different key than the installed one.
+
 WebMini registers as a browser, so links opened by other apps can open in it.
 
 ## Features
@@ -154,7 +156,7 @@ Stored on the device, in the app's private storage:
 - favorites and the two blocking options;
 - the cached EasyList and EasyPrivacy files;
 - cookies and site storage, managed by Android System WebView. Third-party cookies are refused;
-- the page cache, which WebMini erases when the app closes and on demand from the options menu.
+- the page cache, which WebMini erases when the app closes and on demand from the options menu. The cost is a slower reopening of sites you visit often; keeping it would raise the app's storage use, which on 2 GB devices is the tighter limit.
 
 App data is excluded from cloud backup, device-to-device transfer and `adb backup`. To erase everything, open Settings > Apps > WebMini > Clear storage.
 
@@ -168,6 +170,7 @@ Requests made outside the pages you visit:
 
 - Filtering acts on network requests only. Blocked ads can leave empty space on the page, and ads served by the site itself, including YouTube video ads, are not removed.
 - Sites can detect that requests were blocked.
+- Android System WebView does not pass every request to the filter: the interceptor sees the first URL of a redirected resource, not the chain, and cannot cover everything a browser with its own network stack can. A POST form to an HTTP address is not covered by the HTTP warning because the WebView does not report POST navigations to that callback.
 - Regional filter lists exist for Portuguese and Spanish only, chosen by the device language. Other languages rely on EasyList's generic rules.
 - WebMini does not make browsing anonymous.
 
@@ -230,6 +233,10 @@ SHA-256: AB:E8:D3:13:DC:19:19:CB:B4:6A:E4:9B:DC:CF:2C:BC:35:37:66:AF:2A:B3:FD:25
 ```
 
 Check a downloaded file with `apksigner verify --print-certs WebMini-universal.apk`.
+
+## Testing
+
+`./gradlew :app:testDebugUnitTest` runs the navigation policy tests. The manual checklist and the device matrix are in [`docs/testing.md`](docs/testing.md).
 
 ## Contributing
 
