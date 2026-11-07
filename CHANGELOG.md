@@ -6,13 +6,18 @@
 
 - Clear cache entry in the options menu; the page cache is also erased when the app closes.
 - Obtainium badge and Downloader code at the top of the README.
-- Search engine choice (Google, DuckDuckGo, Bing, Brave) and voice search.
-- Regional filter lists for Portuguese and Spanish devices.
+- Search engine choice (Google, DuckDuckGo, Bing, Brave); queries use the selected engine.
+- Voice search using the speech recognizer installed on the device (audio is processed by that recognizer).
+- Regional filter list choice (automatic, Portuguese, Spanish, none) in Menu > Block ads and trackers > Regional list.
+- Per-site exception toggle ("Filter on this site") under Menu > Block ads and trackers, lasting for the session.
+- Menu status indicators: "loading lists" during compilation and "basic list only" when running on fallback rules.
 - Clear data menu: cache only, cookies and site data only, or all three together.
 
 ### Changed
 
-- Favorites are limited to 4, the most that fit the home screen at 720p without scrolling. Existing favorites beyond 4 are hidden on the next launch and dropped when favorites are next saved.
+- D-pad moves focus on the home screen and in menus, and moves the pointer on web pages.
+- Up to 4 favorites are shown on the home screen to fit without scrolling; favorites beyond 4 remain stored.
+- Preferences and the regional filter list choice are stored in private app storage.
 - CI builds the release variant with R8, checks ABI splits and the JNI library and writes `SHA256SUMS.txt`.
 - Workflows pin Rust 1.99.1, cargo-ndk 4.1.2, each action by commit SHA and the Gradle wrapper checksum.
 - A `v*` tag publishes the signed `WebMini-*.apk` files and `SHA256SUMS.txt` through `.github/workflows/release.yml`.

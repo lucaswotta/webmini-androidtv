@@ -122,14 +122,14 @@ WebMini registers as a browser, so links opened by other apps can open in it.
 | Malicious sites | Android System WebView Safe Browsing is on (Android 8.0 and later). |
 | Crashed pages | Recovers when the page renderer stops, without closing the app. |
 
-Filter lists are downloaded over HTTPS from `easylist.to` and, for Portuguese and Spanish devices, `easylist-downloads.adblockplus.org`, refreshed every 7 days, limited to 5 MB each, checked for a valid header and replaced atomically. Both blocking options can be turned off from the options menu.
+Filter lists are downloaded over HTTPS from `easylist.to` and, when a regional list is enabled, `easylist-downloads.adblockplus.org`, refreshed every 7 days, limited to 5 MB each, checked for a valid header and replaced atomically. The regional list can be set to automatic, Portuguese, Spanish or none in Menu > Block ads and trackers > Regional list. Menu > Block ads and trackers also provides "Filter on this site" to create an exception for the current session only. The menu displays "loading lists" while lists are compiled and "basic list only" when running on fallback rules. Both blocking options can be turned off from the options menu.
 
 ### Browsing
 
-- Address bar that accepts a URL or a search, with Google, DuckDuckGo, Bing or Brave as the engine.
-- Voice search with the remote microphone, when the device has a speech recognizer.
+- Address bar that accepts a URL or a search, with Google, DuckDuckGo, Bing or Brave as the engine. Queries use the chosen search engine.
+- Voice search using the remote microphone, performed by the speech recognizer installed on the device (audio is processed by that recognizer).
 - Back, forward, reload and home.
-- Up to 4 favorites on the home screen, so the page always fits the screen without scrolling.
+- Up to 4 favorites are shown on the home screen so the page always fits the screen without scrolling; favorites beyond 4 remain stored.
 - Clear cache from the options menu. The cache is also erased every time the app closes.
 - Full-screen video.
 - System light and dark themes on phones; a black interface on TV.
@@ -138,7 +138,7 @@ Filter lists are downloaded over HTTPS from `easylist.to` and, for Portuguese an
 
 | Input | Action |
 | --- | --- |
-| D-pad | Moves the pointer. Holding a direction speeds it up. |
+| D-pad | Moves focus on the home screen and in menus; moves the pointer on web pages. Holding a direction speeds the pointer up. |
 | Pointer at the top or bottom edge | Scrolls the page. |
 | OK, Enter or gamepad A | Clicks under the pointer. |
 | Back or gamepad B | Closes the menu, leaves full screen, or goes back one page. On the home screen, exits. |
@@ -153,8 +153,8 @@ WebMini has no analytics, telemetry, account or browsing history. The back stack
 
 Stored on the device, in the app's private storage:
 
-- favorites and the two blocking options;
-- the cached EasyList and EasyPrivacy files;
+- preferences (blocking options, chosen search engine and regional list choice) and favorites;
+- the cached EasyList, EasyPrivacy and regional list files;
 - cookies and site storage, managed by Android System WebView. Third-party cookies are refused;
 - the page cache, which WebMini erases when the app closes and on demand from the options menu.
 
@@ -162,15 +162,15 @@ App data is excluded from cloud backup, device-to-device transfer and `adb backu
 
 Requests made outside the pages you visit:
 
-- `easylist.to` and, for Portuguese and Spanish devices, `easylist-downloads.adblockplus.org`, at most once every 7 days, while ad blocking is on;
+- `easylist.to` and, when a regional list is enabled, `easylist-downloads.adblockplus.org`, at most once every 7 days, while ad blocking is on;
 - Google Safe Browsing, through Android System WebView, on Android 8.0 and later;
-- `google.com`, when you search from the home screen or the address bar.
+- the chosen search engine (Google, DuckDuckGo, Bing or Brave), when you search from the home screen or the address bar.
 
 ## Limitations
 
 - Filtering acts on network requests only. Blocked ads can leave empty space on the page, and ads served by the site itself, including YouTube video ads, are not removed.
 - Sites can detect that requests were blocked.
-- Regional filter lists exist for Portuguese and Spanish only, chosen by the device language. Other languages rely on EasyList's generic rules.
+- Regional filter lists exist for Portuguese and Spanish (chosen automatically by device language or in Menu > Block ads and trackers > Regional list). Other languages rely on EasyList's generic rules.
 - WebMini does not make browsing anonymous.
 
 ## Requirements

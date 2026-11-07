@@ -122,14 +122,14 @@ O WebMini se registra como navegador, então links abertos por outros apps podem
 | Sites maliciosos | O Safe Browsing da WebView do Android fica ligado (Android 8.0 ou superior). |
 | Página travada | Recupera quando o processo da página cai, sem fechar o app. |
 
-As listas de filtro são baixadas por HTTPS de `easylist.to` e, em aparelhos em português ou espanhol, de `easylist-downloads.adblockplus.org`, atualizadas a cada 7 dias, limitadas a 5 MB cada, conferidas pelo cabeçalho e substituídas de forma atômica. Os dois bloqueios podem ser desligados no menu de opções.
+As listas de filtro são baixadas por HTTPS de `easylist.to` e, quando uma lista regional está ativa, de `easylist-downloads.adblockplus.org`, atualizadas a cada 7 dias, limitadas a 5 MB cada, conferidas pelo cabeçalho e substituídas de forma atômica. A lista regional pode ser escolhida (automática, português, espanhol ou nenhuma) em Menu > Bloquear anúncios > Lista regional. O Menu > Bloquear anúncios também traz "Filtro neste site" (exceção válida só na sessão). O menu mostra "carregando listas" durante a compilação e "só lista básica" quando opera com as regras de contingência. Os dois bloqueios podem ser desligados no menu de opções.
 
 ### Navegação
 
-- Barra de endereço que aceita URL ou pesquisa, com Google, DuckDuckGo, Bing ou Brave como buscador.
-- Pesquisa por voz com o microfone do controle, quando o aparelho tem reconhecedor de fala.
+- Barra de endereço que aceita URL ou pesquisa, com Google, DuckDuckGo, Bing ou Brave como buscador. A busca usa o buscador escolhido.
+- Pesquisa por voz com o microfone do controle, feita pelo reconhecedor de fala instalado no aparelho (o áudio é tratado por ele).
 - Voltar, avançar, recarregar e início.
-- Até 4 favoritos na tela inicial, para a página caber sempre na tela, sem rolagem.
+- Até 4 favoritos aparecem na tela inicial para caber na tela sem rolagem; favoritos além de 4 continuam guardados.
 - Limpar cache pelo menu de opções. O cache também é apagado toda vez que o app fecha.
 - Vídeo em tela cheia.
 - Temas claro e escuro do sistema no celular; interface preta na TV.
@@ -138,7 +138,7 @@ As listas de filtro são baixadas por HTTPS de `easylist.to` e, em aparelhos em 
 
 | Entrada | Ação |
 | --- | --- |
-| Direcional | Move o ponteiro. Segurar a direção acelera. |
+| Direcional | Move o foco na tela inicial e nos menus; na página, move o ponteiro. Segurar a direção acelera o ponteiro. |
 | Ponteiro na borda de cima ou de baixo | Rola a página. |
 | OK, Enter ou botão A do gamepad | Clica sob o ponteiro. |
 | Voltar ou botão B do gamepad | Fecha o menu, sai da tela cheia ou volta uma página. Na tela inicial, sai do app. |
@@ -153,8 +153,8 @@ O WebMini não tem analytics, telemetria, conta nem histórico de navegação. A
 
 Fica guardado no aparelho, no armazenamento privado do app:
 
-- favoritos e as duas opções de bloqueio;
-- as cópias de EasyList e EasyPrivacy;
+- preferências (opções de bloqueio, buscador escolhido e lista regional) e favoritos;
+- as cópias de EasyList, EasyPrivacy e da lista regional;
 - cookies e armazenamento dos sites, geridos pela WebView do Android. Cookies de terceiros são recusados;
 - o cache das páginas, que o WebMini apaga quando o app fecha e sob demanda pelo menu de opções.
 
@@ -162,15 +162,15 @@ Os dados do app ficam fora do backup na nuvem, da transferência entre aparelhos
 
 Requisições feitas fora das páginas que você visita:
 
-- `easylist.to` e, em aparelhos em português ou espanhol, `easylist-downloads.adblockplus.org`, no máximo uma vez a cada 7 dias, com o bloqueio de anúncios ligado;
+- `easylist.to` e, quando uma lista regional está ativa, `easylist-downloads.adblockplus.org`, no máximo uma vez a cada 7 dias, com o bloqueio de anúncios ligado;
 - Google Safe Browsing, pela WebView do Android, no Android 8.0 ou superior;
-- `google.com`, quando você pesquisa pela tela inicial ou pela barra de endereço.
+- o buscador escolhido (Google, DuckDuckGo, Bing ou Brave), quando você pesquisa pela tela inicial ou pela barra de endereço.
 
 ## Limitações
 
 - O filtro age só nas requisições de rede. Anúncios bloqueados podem deixar espaço vazio na página, e anúncios servidos pelo próprio site, inclusive os de vídeo do YouTube, não são removidos.
 - Sites podem detectar que requisições foram bloqueadas.
-- Há listas regionais só para português e espanhol, escolhidas pelo idioma do aparelho. Outros idiomas dependem das regras genéricas da EasyList.
+- Há listas regionais para português e espanhol (escolhidas automaticamente pelo idioma ou em Menu > Bloquear anúncios > Lista regional). Outros idiomas dependem das regras genéricas da EasyList.
 - O WebMini não torna a navegação anônima.
 
 ## Requisitos
