@@ -54,8 +54,8 @@ Cold start on the same device: 0.7–1.4 s to the home screen.
 | ![Home screen with search and four favorites](docs/images/home.png) | ![Options menu with forward, pop-up blocking, ad blocking and about](docs/images/menu.png) |
 | Pop-up confirmation | Download confirmation |
 | ![Dialog asking to open www.wikipedia.org in the current tab](docs/images/popup.png) | ![Dialog showing file name, host and type before a download](docs/images/download.png) |
-| HTTP warning | |
-| ![Dialog warning that neverssl.com uses an unencrypted connection](docs/images/http.png) | |
+| HTTP warning | Ad blocking options |
+| ![Dialog warning that neverssl.com uses an unencrypted connection](docs/images/http.png) | ![Ad blocking submenu with the global switch, the per-site exception and the regional list](docs/images/filtering.png) |
 
 The interface follows the device language: English, Spanish or Brazilian Portuguese. The screenshots show the Portuguese interface.
 
@@ -147,7 +147,7 @@ Filter lists are downloaded over HTTPS from `easylist.to` and, when a regional l
 | Left and right in a text field | Move the text cursor, or leave the field at the ends of the text. |
 | Gamepad analog stick | Moves the pointer. Ignored on the home screen, in menus and in the toolbar. |
 
-The pointer hides after 2.5 s without input and returns on the next key press.
+The pointer hides after 2.5 s without input and returns on the next key press. While a text field inside a page has the keyboard, the D-pad goes to the page; press Back to leave the field, then up reaches the toolbar.
 
 ## Privacy
 

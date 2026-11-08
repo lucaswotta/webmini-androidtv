@@ -116,8 +116,7 @@ public class MainActivity extends Activity {
     private final ArrayList<String> favorites = new ArrayList<>();
     private boolean homePage;
     private boolean tvMode;
-    // D-pad owns the toolbar while this is set; the pointer takes over again on exit.
-    private boolean toolbarFocus;
+    private LinearLayout toolbarView;
     private boolean cursorShown = true;
     private long edgeScrollStarted;
     private int edgeScrollDirection;
@@ -221,6 +220,7 @@ public class MainActivity extends Activity {
         });
 
         LinearLayout toolbar = new LinearLayout(this);
+        toolbarView = toolbar;
         toolbar.setGravity(Gravity.CENTER);
         toolbar.setBackgroundColor(getResources().getColor(
                 tvMode ? R.color.tv_surface : R.color.ui_background));
@@ -363,7 +363,6 @@ public class MainActivity extends Activity {
             webView = null;
         }
         homePage = true;
-        toolbarFocus = false;
         if (address.isFocused()) address.clearFocus();
         currentUrl = HOME;
         address.setText("");
@@ -985,7 +984,7 @@ public class MainActivity extends Activity {
                 && (event.getSource() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) {
             // Focus drives the home screen, menus and the toolbar, so the stick only
             // moves the pointer over the web page.
-            if (homePage || menuPanel != null || toolbarFocus
+            if (homePage || menuPanel != null || toolbarHasFocus()
                     || focusedEditor() != null || keyboardAcceptingText()) {
                 analogX = 0;
                 analogY = 0;
@@ -1030,7 +1029,7 @@ public class MainActivity extends Activity {
                 // Leaving a half-typed address or the toolbar first keeps Back from
                 // navigating away while the user is still editing.
                 if (editor != null) leaveEditor(editor);
-                else if (toolbarFocus && menuPanel == null) leaveToolbar();
+                else if (toolbarHasFocus() && menuPanel == null) leaveToolbar();
                 else navigateBack();
             }
             return true;
@@ -1066,7 +1065,7 @@ public class MainActivity extends Activity {
             }
             return super.dispatchKeyEvent(event);
         }
-        if (tvMode && toolbarFocus && menuPanel == null && !homePage) {
+        if (tvMode && toolbarHasFocus() && menuPanel == null && !homePage) {
             if (key == KeyEvent.KEYCODE_DPAD_UP
                     || (key == KeyEvent.KEYCODE_DPAD_DOWN
                             && event.getAction() == KeyEvent.ACTION_DOWN)) {
@@ -1087,7 +1086,6 @@ public class MainActivity extends Activity {
                             && (webView == null || webView.getScrollY() == 0)) {
                         // Nothing scrolls at the top of the page, so the key reaches the
                         // address bar instead of the pointer.
-                        toolbarFocus = true;
                         address.requestFocus();
                         if (cursorView != null) cursorView.removeCallbacks(hideCursor);
                         hideCursor.run();
@@ -1140,9 +1138,23 @@ public class MainActivity extends Activity {
         }
     }
 
+    // Derived from the real focus so it cannot drift from what the user sees.
+    private boolean toolbarHasFocus() {
+        View focused = getCurrentFocus();
+        while (focused != null && toolbarView != null) {
+            if (focused == toolbarView) return true;
+            focused = focused.getParent() instanceof View ? (View) focused.getParent() : null;
+        }
+        return false;
+    }
+
+    // clearFocus() would hand focus back to the first toolbar button, so move it to the page.
+    private void focusPage() {
+        if (webView != null) webView.requestFocus();
+    }
+
     private void leaveEditor(EditText editor) {
-        toolbarFocus = false;
-        editor.clearFocus();
+        focusPage();
         InputMethodManager inputMethod = (InputMethodManager)
                 getSystemService(INPUT_METHOD_SERVICE);
         if (inputMethod != null) {
@@ -1152,9 +1164,7 @@ public class MainActivity extends Activity {
     }
 
     private void leaveToolbar() {
-        toolbarFocus = false;
-        View focused = getCurrentFocus();
-        if (focused != null) focused.clearFocus();
+        focusPage();
         revealCursor();
     }
 
@@ -1751,7 +1761,6 @@ public class MainActivity extends Activity {
             url = "https://" + input;
         }
         navigateTo(url);
-        toolbarFocus = false;
         address.clearFocus();
         if (tvMode && webView != null) webView.requestFocus();
     }

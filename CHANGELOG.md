@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.1 (2026-11-08)
+
+### Added
+
+- The D-pad reaches the address bar and the toolbar: up at the top of a page focuses the address bar, left and right move between the buttons, down returns to the pointer.
+- With 4 favorites saved, the star lists them so one can be replaced; "Remove favorite" in the options menu deletes one.
+- Menu panels with more than seven rows scroll, and can carry a title.
+- Ad blocking options screenshot in the README.
+
+### Changed
+
+- Toolbar focus is read from the real focus instead of a flag, and leaving the toolbar or the address bar moves focus to the page rather than back to the Home button.
+- The analog stick moves the pointer only over web pages.
+
 ## 0.3.0 (2026-11-07)
 
 Redesign, search and filtering options, and a round of fixes from an independent code review.

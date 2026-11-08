@@ -27,6 +27,10 @@ Run on a TV device, with the debug or release build.
 | Search | Change the engine, search from home and from the address bar | Uses the chosen engine |
 | Voice | Press the microphone button on a device with a recognizer | The spoken text is searched |
 | Renderer | Kill the WebView process (`adb shell am kill`) | App stays open; page offers home and edit address |
+| Toolbar | Open a page, press up at the top, then left and right, then down | Focus ring on the address bar and each button; down returns to the pointer. If a text field in the page has the keyboard, press Back first |
+| Toolbar | Repeat the previous case 5 times, then move the pointer | Pointer still moves; no button stays highlighted |
+| Favorites | With 4 saved, focus the star and press OK | List of stored favorites; choosing one replaces it with the current page |
+| Favorites | Menu, "Remove favorite", choose one | The favorite disappears from the home grid |
 | Lifecycle | Visit a site, press home, reopen the app without killing it | Pages load and timers run |
 
 ## Devices
