@@ -100,10 +100,10 @@ Ative as opções do desenvolvedor e a depuração pela rede na TV, depois:
 
 ```sh
 adb connect <ip-da-tv>:5555
-adb install WebMini-universal.apk
+adb install -r WebMini-universal.apk
 ```
 
-Para atualizar uma cópia instalada mantendo os dados, use `adb install -r WebMini-universal.apk`. O Android recusa a atualização se o APK foi assinado com outra chave.
+`-r` atualiza uma cópia instalada e preserva os dados; sem ele, o comando falha quando o WebMini já está instalado. O APK precisa trazer o certificado de [Certificado de assinatura](#certificado-de-assinatura), ou o Android recusa a atualização, e desinstalar antes apaga favoritos e opções.
 
 O WebMini se registra como navegador, então links abertos por outros apps podem abrir nele.
 
@@ -122,15 +122,15 @@ O WebMini se registra como navegador, então links abertos por outros apps podem
 | Sites maliciosos | O Safe Browsing da WebView do Android fica ligado (Android 8.0 ou superior). |
 | Página travada | Recupera quando o processo da página cai, sem fechar o app. |
 
-As listas de filtro são baixadas por HTTPS de `easylist.to` e, em aparelhos em português ou espanhol, de `easylist-downloads.adblockplus.org`, atualizadas a cada 7 dias, limitadas a 5 MB cada, conferidas pelo cabeçalho e substituídas de forma atômica. Os dois bloqueios podem ser desligados no menu de opções.
+As listas de filtro são baixadas por HTTPS de `easylist.to` e, quando uma lista regional está ativa, de `easylist-downloads.adblockplus.org`, atualizadas a cada 7 dias (uma lista que falha é tentada de novo na próxima abertura), limitadas a 5 MB cada, conferidas pelo cabeçalho e substituídas de forma atômica. A lista regional pode ser escolhida (automática, português, espanhol ou nenhuma) em Menu > Bloquear anúncios > Lista regional. O Menu > Bloquear anúncios também traz "Filtro neste site" (exceção válida só na sessão). O menu mostra "carregando listas" durante a compilação e "só lista básica" quando opera com as regras de contingência. Os dois bloqueios podem ser desligados no menu de opções.
 
 ### Navegação
 
-- Barra de endereço que aceita URL ou pesquisa, com Google, DuckDuckGo, Bing ou Brave como buscador.
-- Pesquisa por voz com o microfone do controle, quando o aparelho tem reconhecedor de fala.
+- Barra de endereço que aceita URL ou pesquisa, com Google, DuckDuckGo, Bing ou Brave como buscador. A busca usa o buscador escolhido.
+- Pesquisa por voz com o microfone do controle, feita pelo reconhecedor de fala instalado no aparelho (o áudio é tratado por ele).
 - Voltar, avançar, recarregar e início.
-- Até 4 favoritos na tela inicial, para a página caber sempre na tela, sem rolagem.
-- Limpar cache pelo menu de opções. O cache também é apagado toda vez que o app fecha.
+- Até 4 favoritos aparecem na tela inicial para caber na tela sem rolagem; favoritos além de 4 continuam guardados.
+- Limpar cache pelo menu de opções. O cache também é apagado quando o app é encerrado normalmente; manter o cache aumenta o uso de armazenamento do aparelho.
 - Vídeo em tela cheia.
 - Temas claro e escuro do sistema no celular; interface preta na TV.
 
@@ -138,7 +138,7 @@ As listas de filtro são baixadas por HTTPS de `easylist.to` e, em aparelhos em 
 
 | Entrada | Ação |
 | --- | --- |
-| Direcional | Move o ponteiro. Segurar a direção acelera. |
+| Direcional | Move o foco na tela inicial e nos menus; na página, move o ponteiro. Segurar a direção acelera o ponteiro. |
 | Ponteiro na borda de cima ou de baixo | Rola a página. |
 | OK, Enter ou botão A do gamepad | Clica sob o ponteiro. |
 | Voltar ou botão B do gamepad | Fecha o menu, sai da tela cheia ou volta uma página. Na tela inicial, sai do app. |
@@ -153,25 +153,25 @@ O WebMini não tem analytics, telemetria, conta nem histórico de navegação. A
 
 Fica guardado no aparelho, no armazenamento privado do app:
 
-- favoritos e as duas opções de bloqueio;
-- as cópias de EasyList e EasyPrivacy;
+- preferências (opções de bloqueio, buscador escolhido e lista regional) e favoritos;
+- as cópias de EasyList, EasyPrivacy e da lista regional;
 - cookies e armazenamento dos sites, geridos pela WebView do Android. Cookies de terceiros são recusados;
-- o cache das páginas, que o WebMini apaga quando o app fecha e sob demanda pelo menu de opções. O custo é reabrir mais devagar os sites que você visita sempre; guardar o cache aumentaria o uso de armazenamento, que em aparelhos de 2 GB é o limite mais apertado.
+- o cache das páginas, que o WebMini apaga quando o app é encerrado normalmente e sob demanda pelo menu de opções; manter o cache aumenta o uso de armazenamento do aparelho.
 
 Os dados do app ficam fora do backup na nuvem, da transferência entre aparelhos e do `adb backup`. Para apagar tudo, abra Configurações > Apps > WebMini > Limpar armazenamento.
 
 Requisições feitas fora das páginas que você visita:
 
-- `easylist.to` e, em aparelhos em português ou espanhol, `easylist-downloads.adblockplus.org`, no máximo uma vez a cada 7 dias, com o bloqueio de anúncios ligado;
+- `easylist.to` e, quando uma lista regional está ativa, `easylist-downloads.adblockplus.org`, a cada 7 dias com o bloqueio de anúncios ligado (uma lista que falha é tentada de novo na próxima abertura);
 - Google Safe Browsing, pela WebView do Android, no Android 8.0 ou superior;
-- `google.com`, quando você pesquisa pela tela inicial ou pela barra de endereço.
+- o buscador escolhido (Google, DuckDuckGo, Bing ou Brave), quando você pesquisa pela tela inicial ou pela barra de endereço.
 
 ## Limitações
 
 - O filtro age só nas requisições de rede. Anúncios bloqueados podem deixar espaço vazio na página, e anúncios servidos pelo próprio site, inclusive os de vídeo do YouTube, não são removidos.
 - Sites podem detectar que requisições foram bloqueadas.
 - A WebView do Android não repassa todas as requisições ao filtro: o interceptador vê a primeira URL de um recurso redirecionado, não a cadeia, e não cobre tudo o que um navegador com pilha de rede própria cobre. Um formulário POST para um endereço HTTP não passa pelo aviso de HTTP, porque a WebView não informa navegações POST a esse callback.
-- Há listas regionais só para português e espanhol, escolhidas pelo idioma do aparelho. Outros idiomas dependem das regras genéricas da EasyList.
+- Há listas regionais para português e espanhol (escolhidas automaticamente pelo idioma ou em Menu > Bloquear anúncios > Lista regional). Outros idiomas dependem das regras genéricas da EasyList.
 - O WebMini não torna a navegação anônima.
 
 ## Requisitos
@@ -189,11 +189,13 @@ Usa o WebMini em outro aparelho? [Abra um relato de aparelho](https://github.com
 
 ## Compilar
 
-Requisitos: JDK 17 ou superior, Android SDK Platform 36, Android NDK 27.2.12479018, Rust e [`cargo-ndk`](https://github.com/bbqsrc/cargo-ndk).
+Requisitos: JDK 17 ou superior, Android SDK Platform 36, Android NDK 27.2.12479018, Rust 1.99.1 e [`cargo-ndk`](https://github.com/bbqsrc/cargo-ndk) 4.1.2. A CI usa Rust 1.99.1 e cargo-ndk 4.1.2; instale as mesmas versões para reproduzir o build localmente.
 
 ```sh
+rustup toolchain install 1.99.1 --profile minimal
+rustup default 1.99.1
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-cargo install cargo-ndk --locked
+cargo install cargo-ndk --locked --version 4.1.2
 export ANDROID_HOME=/caminho/do/android/sdk
 ./gradlew :app:assembleDebug
 ```
@@ -214,6 +216,10 @@ webminiKeyPassword=...
 ```
 
 Sem elas, `assembleRelease` gera APKs sem assinatura.
+
+A integração contínua compila as duas variantes a cada push e pull request, confere que cada APK traz uma divisão de ABI mais a `libwebmini_adblock.so` correspondente, e grava `SHA256SUMS.txt` ao lado dos APKs. Os workflows fixam Rust 1.99.1, cargo-ndk 4.1.2 e cada action pelo SHA do commit, e o wrapper do Gradle verifica o SHA-256 da sua distribuição.
+
+Publicar uma tag `v*` executa `.github/workflows/release.yml`: ele recusa tag que não bate com `versionName`, compila uma release assinada, confere cada APK contra o digesto do certificado em [Certificado de assinatura](#certificado-de-assinatura), renomeia os arquivos para `WebMini-{universal,armeabi-v7a,arm64-v8a,x86_64}.apk`, grava `SHA256SUMS.txt` e anexa os dois à página da release. A assinatura lê os secrets do repositório `WEBMINI_KEYSTORE_BASE64` (o keystore codificado com `base64 -w0`), `WEBMINI_STORE_PASSWORD`, `WEBMINI_KEY_ALIAS` e `WEBMINI_KEY_PASSWORD`; nenhuma chave chega ao repositório nem aos logs.
 
 ### Estrutura
 
