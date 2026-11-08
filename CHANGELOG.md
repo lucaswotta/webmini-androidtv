@@ -18,7 +18,7 @@
 - D-pad moves focus on the home screen and in menus, and moves the pointer on web pages.
 - Up to 4 favorites are shown on the home screen to fit without scrolling; favorites beyond 4 remain stored.
 - Preferences and the regional filter list choice are stored in private app storage.
-- CI builds the release variant with R8, checks ABI splits and the JNI library and writes `SHA256SUMS.txt`.
+- CI runs unit tests and lint and builds the release variant with R8, checking ABI splits and the JNI library.
 - Workflows pin Rust 1.99.1, cargo-ndk 4.1.2, each action by commit SHA and the Gradle wrapper checksum.
 - A `v*` tag publishes the signed `WebMini-*.apk` files and `SHA256SUMS.txt` through `.github/workflows/release.yml`.
 

@@ -47,7 +47,7 @@
     <string name="voice_search">Pesquisa por voz</string>
     <string name="voice_unavailable">A pesquisa por voz não está disponível neste aparelho</string>
     <string name="tracker_block_loading">Bloquear anúncios e rastreadores: carregando listas</string>
-    <string name="tracker_block_reduced">Bloquear anúncios e rastreadores: só lista básica</string>
+    <string name="tracker_block_reduced">Bloquear anúncios e rastreadores: listas parciais</string>
     <string name="page_failed">Não foi possível carregar a página.</string>
     <string name="edit_address">Editar endereço</string>
     <string name="site_filter_on">Filtro em %s: ligado</string>
@@ -57,4 +57,5 @@
     <string name="regional_pt">português</string>
     <string name="regional_es">espanhol</string>
     <string name="regional_none">nenhuma</string>
+    <string name="http_form_blocked">Formulários enviados por conexão HTTP sem criptografia são bloqueados</string>
 </resources>

@@ -1177,6 +1177,13 @@ public class MainActivity extends Activity {
     }
 
     private WebResourceResponse filterNetworkRequest(WebResourceRequest request) {
+        if (request.isForMainFrame()
+                && NavigationPolicy.blocksHttpForm(request.getUrl().toString(), request.getMethod())) {
+            runOnUiThread(() -> Toast.makeText(this, R.string.http_form_blocked,
+                    Toast.LENGTH_LONG).show());
+            return new WebResourceResponse("text/plain", "UTF-8", 403, "Blocked",
+                    new java.util.HashMap<>(), new ByteArrayInputStream(EMPTY_BODY));
+        }
         if (!adBlockEnabled || request.isForMainFrame()) return null;
         String pageOrigin = NavigationPolicy.origin(currentUrl);
         if (pageOrigin != null && exemptOrigins.contains(pageOrigin)) return null;

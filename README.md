@@ -116,7 +116,7 @@ WebMini registers as a browser, so links opened by other apps can open in it.
 | Ads and trackers | Blocks matching network requests with EasyList and EasyPrivacy, including requests made by service workers. A short built-in host list covers the seconds while the lists load. |
 | Pop-ups and new windows | Never opens a second window. A pop-up started by a click asks for confirmation and shows the destination host; one started by a script is discarded. |
 | Redirects to other apps | Blocks navigation to any scheme other than `http` and `https`. |
-| Unencrypted pages | Asks before loading any HTTP page, whether it comes from a link, a redirect, the address bar, a favorite or another app. Mixed content is never loaded. |
+| Unencrypted pages | Asks before loading any HTTP page opened by GET, whether it comes from a link, a redirect, the address bar, a favorite or another app. Forms sent over HTTP are blocked. Mixed content is never loaded. |
 | Downloads | Shows file name, host and type before saving to Downloads. Files never open automatically. |
 | Device access | Denies camera, microphone and location requests. File uploads and `file://` or `content://` access are blocked. |
 | Malicious sites | Android System WebView Safe Browsing is on (Android 8.0 and later). |
@@ -217,7 +217,7 @@ webminiKeyPassword=...
 
 Without them, `assembleRelease` produces unsigned APKs.
 
-Continuous integration builds both variants on every push and pull request, checks that each APK carries one ABI split plus the matching `libwebmini_adblock.so`, and writes `SHA256SUMS.txt` beside the APKs. The workflows pin Rust 1.99.1, cargo-ndk 4.1.2 and each action by commit SHA, and the Gradle wrapper verifies the SHA-256 of its distribution.
+Continuous integration runs the unit tests and lint, builds both variants on every push to `main` and every pull request, and checks that each release APK carries the matching `libwebmini_adblock.so`. It uploads only the debug APKs; `SHA256SUMS.txt` is written by the release workflow. The workflows pin Rust 1.99.1, cargo-ndk 4.1.2 and each action by commit SHA, and the Gradle wrapper verifies the SHA-256 of its distribution.
 
 Pushing a tag `v*` runs `.github/workflows/release.yml`: it refuses a tag that does not match `versionName`, builds a signed release, checks every APK against the certificate digest in [Release signing certificate](#release-signing-certificate), renames the files to `WebMini-{universal,armeabi-v7a,arm64-v8a,x86_64}.apk`, writes `SHA256SUMS.txt` and attaches both to the release page. Signing reads the repository secrets `WEBMINI_KEYSTORE_BASE64` (the keystore encoded with `base64 -w0`), `WEBMINI_STORE_PASSWORD`, `WEBMINI_KEY_ALIAS` and `WEBMINI_KEY_PASSWORD`; no key material reaches the repository or the logs.
 

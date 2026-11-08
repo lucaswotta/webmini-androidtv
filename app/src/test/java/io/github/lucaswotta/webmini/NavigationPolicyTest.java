@@ -3,6 +3,8 @@ package io.github.lucaswotta.webmini;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertNotEquals;
 
@@ -69,5 +71,13 @@ public class NavigationPolicyTest {
         assertNotEquals(origin, NavigationPolicy.origin("https://sub.example.com/"));
         assertNotEquals(origin, NavigationPolicy.origin("https://example.com:8443/"));
         assertNull(NavigationPolicy.origin("file:///example.com"));
+    }
+
+    @Test
+    public void refusesFormsSentOverHttp() {
+        assertTrue(NavigationPolicy.blocksHttpForm("http://example.com/login", "POST"));
+        assertFalse(NavigationPolicy.blocksHttpForm("http://example.com/", "GET"));
+        assertFalse(NavigationPolicy.blocksHttpForm("https://example.com/login", "POST"));
+        assertFalse(NavigationPolicy.blocksHttpForm("intent://x", "POST"));
     }
 }

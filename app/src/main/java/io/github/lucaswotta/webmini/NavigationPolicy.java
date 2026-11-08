@@ -13,6 +13,13 @@ final class NavigationPolicy {
         return origin.startsWith("http:") ? Decision.CONFIRM_HTTP : Decision.ALLOW;
     }
 
+    // WebView reports POST navigations to no callback the user could answer,
+    // so a form sent over HTTP is refused instead of confirmed or converted to GET.
+    static boolean blocksHttpForm(String url, String method) {
+        String origin = origin(url);
+        return origin != null && origin.startsWith("http:") && !"GET".equalsIgnoreCase(method);
+    }
+
     static Decision decide(String url, boolean mainFrame, String method) {
         Decision decision = decide(url);
         if (decision == Decision.CONFIRM_HTTP

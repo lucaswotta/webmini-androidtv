@@ -116,7 +116,7 @@ O WebMini se registra como navegador, então links abertos por outros apps podem
 | Anúncios e rastreadores | Bloqueia as requisições de rede que casam com EasyList e EasyPrivacy, inclusive as feitas por service workers. Uma lista curta de hosts embutida cobre os segundos em que as listas carregam. |
 | Pop-ups e janelas novas | Nunca abre uma segunda janela. Pop-up iniciado por clique pede confirmação e mostra o host de destino; pop-up iniciado por script é descartado. |
 | Redirecionamento para outros apps | Bloqueia navegação para qualquer esquema que não seja `http` ou `https`. |
-| Páginas sem criptografia | Pergunta antes de carregar qualquer página HTTP, venha ela de link, redirecionamento, barra de endereço, favorito ou outro app. Conteúdo misto nunca carrega. |
+| Páginas sem criptografia | Pergunta antes de carregar qualquer página HTTP aberta por GET, venha ela de link, redirecionamento, barra de endereço, favorito ou outro app. Formulários enviados por HTTP são bloqueados. Conteúdo misto nunca carrega. |
 | Downloads | Mostra nome do arquivo, host e tipo antes de salvar em Downloads. Arquivos nunca abrem sozinhos. |
 | Acesso ao aparelho | Nega pedidos de câmera, microfone e localização. Envio de arquivos e acesso a `file://` ou `content://` ficam bloqueados. |
 | Sites maliciosos | O Safe Browsing da WebView do Android fica ligado (Android 8.0 ou superior). |
@@ -217,7 +217,7 @@ webminiKeyPassword=...
 
 Sem elas, `assembleRelease` gera APKs sem assinatura.
 
-A integração contínua compila as duas variantes a cada push e pull request, confere que cada APK traz uma divisão de ABI mais a `libwebmini_adblock.so` correspondente, e grava `SHA256SUMS.txt` ao lado dos APKs. Os workflows fixam Rust 1.99.1, cargo-ndk 4.1.2 e cada action pelo SHA do commit, e o wrapper do Gradle verifica o SHA-256 da sua distribuição.
+A integração contínua roda os testes unitários e o lint, compila as duas variantes a cada push na `main` e a cada pull request e confere que cada APK release traz a `libwebmini_adblock.so` correspondente. Ela só envia os APKs debug; o `SHA256SUMS.txt` é gerado pelo workflow de release. Os workflows fixam Rust 1.99.1, cargo-ndk 4.1.2 e cada action pelo SHA do commit, e o wrapper do Gradle verifica o SHA-256 da sua distribuição.
 
 Publicar uma tag `v*` executa `.github/workflows/release.yml`: ele recusa tag que não bate com `versionName`, compila uma release assinada, confere cada APK contra o digesto do certificado em [Certificado de assinatura](#certificado-de-assinatura), renomeia os arquivos para `WebMini-{universal,armeabi-v7a,arm64-v8a,x86_64}.apk`, grava `SHA256SUMS.txt` e anexa os dois à página da release. A assinatura lê os secrets do repositório `WEBMINI_KEYSTORE_BASE64` (o keystore codificado com `base64 -w0`), `WEBMINI_STORE_PASSWORD`, `WEBMINI_KEY_ALIAS` e `WEBMINI_KEY_PASSWORD`; nenhuma chave chega ao repositório nem aos logs.
 
