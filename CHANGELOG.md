@@ -18,6 +18,7 @@
 - D-pad moves focus on the home screen, in menus and in the toolbar, and moves the pointer on web pages; up at the top of a page focuses the address bar and down leaves it again.
 - The analog stick moves the pointer only over web pages; it is ignored on the home screen, in menus and in the toolbar.
 - Up to 4 favorites are shown on the home screen to fit without scrolling; favorites beyond 4 remain stored.
+- With the grid full, the star lists the stored favorites so one can be replaced; "Remove favorite" in the options menu deletes one.
 - Preferences and the regional filter list choice are stored in private app storage.
 - CI builds the release variant with R8, checks ABI splits and the JNI library and writes `SHA256SUMS.txt`.
 - Workflows pin Rust 1.99.1, cargo-ndk 4.1.2, each action by commit SHA and the Gradle wrapper checksum.

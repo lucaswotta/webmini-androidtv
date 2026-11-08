@@ -15,7 +15,8 @@ Run on a TV device, with the debug or release build.
 | Area | Check | Expected |
 | --- | --- | --- |
 | Home | Open the app, press D-pad down | Focus moves to the search field, then to the favorites |
-| Home | Save 5 favorites | Fifth is refused with the limit message; the grid shows 4 and fits without scrolling |
+| Home | Save 5 favorites | The star opens the stored list to replace one; the grid keeps 4 and fits without scrolling |
+| Menu | Menu, Remove a favorite | Stored favorites are listed; the removed one leaves the home screen |
 | Pointer | Open a page, move the pointer to the bottom edge | Page scrolls |
 | HTTP | Open `http://neverssl.com` from the address bar and from a favorite | Warning each time |
 | Pop-up | Open a page that calls `window.open` from a click | Confirmation with the destination host |

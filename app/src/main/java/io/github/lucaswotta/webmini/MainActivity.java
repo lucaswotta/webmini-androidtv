@@ -597,14 +597,33 @@ public class MainActivity extends Activity {
         if (favorites.contains(currentUrl)) {
             favorites.remove(currentUrl);
         } else if (favorites.size() >= MAX_FAVORITES) {
-            Toast.makeText(this, getString(R.string.favorites_full, MAX_FAVORITES),
-                    Toast.LENGTH_LONG).show();
+            // The grid has no free slot, so the page enters by replacing a stored favorite.
+            chooseFavorite(getString(R.string.favorites_full, MAX_FAVORITES), which -> {
+                favorites.set(which, currentUrl);
+                persistFavorites();
+                updateFavoriteButton();
+            });
             return;
         } else {
             favorites.add(0, currentUrl);
         }
         persistFavorites();
         updateFavoriteButton();
+    }
+
+    private void chooseFavorite(String title, Choice choice) {
+        String[] entries = favorites.toArray(new String[0]);
+        showChoices(title, entries, choice);
+    }
+
+    private void removeFavorite() {
+        chooseFavorite(getString(R.string.menu_remove_favorite), which -> {
+            favorites.remove(which);
+            persistFavorites();
+            if (homePage) showHomePage();
+            else updateFavoriteButton();
+            Toast.makeText(this, R.string.favorite_removed, Toast.LENGTH_SHORT).show();
+        });
     }
 
     private void updateFavoriteButton() {
@@ -1097,10 +1116,17 @@ public class MainActivity extends Activity {
         String popupLabel = getString(popupsBlocked
                 ? R.string.popup_block_enabled : R.string.popup_block_disabled);
         String adBlockLabel = getString(adBlockStateLabel());
-        String[] entries = {getString(R.string.menu_forward), popupLabel, adBlockLabel,
-                getString(R.string.menu_search_engine, SEARCH_ENGINES[searchEngineIndex()][0]),
-                getString(R.string.menu_clear_data), getString(R.string.menu_about)};
-        showChoices(entries, which -> {
+        boolean canRemoveFavorite = !favorites.isEmpty();
+        ArrayList<String> entries = new ArrayList<>();
+        entries.add(getString(R.string.menu_forward));
+        entries.add(popupLabel);
+        entries.add(adBlockLabel);
+        entries.add(getString(R.string.menu_search_engine, SEARCH_ENGINES[searchEngineIndex()][0]));
+        if (canRemoveFavorite) entries.add(getString(R.string.menu_remove_favorite));
+        entries.add(getString(R.string.menu_clear_data));
+        entries.add(getString(R.string.menu_about));
+        final int clearDataAt = canRemoveFavorite ? 5 : 4;
+        showChoices(entries.toArray(new String[0]), which -> {
             if (which == 0 && webView != null && webView.canGoForward()) webView.goForward();
             if (which == 1) {
                 popupsBlocked = !popupsBlocked;
@@ -1110,8 +1136,9 @@ public class MainActivity extends Activity {
             }
             if (which == 2) adBlockMenu();
             if (which == 3) chooseSearchEngine();
-            if (which == 4) clearDataMenu();
-            if (which == 5) {
+            if (canRemoveFavorite && which == 4) removeFavorite();
+            if (which == clearDataAt) clearDataMenu();
+            if (which == clearDataAt + 1) {
                 navigateTo(ABOUT);
             }
         });
@@ -1519,9 +1546,15 @@ public class MainActivity extends Activity {
     }
 
     private void showChoices(String[] entries, Choice choice) {
+        showChoices(null, entries, choice);
+    }
+
+    private void showChoices(String title, String[] entries, Choice choice) {
         if (!tvMode) {
-            new AlertDialog.Builder(this)
-                    .setItems(entries, (dialog, which) -> choice.select(which)).show();
+            AlertDialog.Builder dialog = new AlertDialog.Builder(this)
+                    .setItems(entries, (panel, which) -> choice.select(which));
+            if (title != null) dialog.setTitle(title);
+            dialog.show();
             return;
         }
         if (menuPanel != null) return;
@@ -1533,21 +1566,43 @@ public class MainActivity extends Activity {
         list.setPadding(dp(16), dp(16), dp(16), dp(16));
         list.setBackgroundResource(R.drawable.tv_address);
         list.setClickable(true);
+        if (title != null) {
+            TextView heading = new TextView(this);
+            heading.setText(title);
+            heading.setTextColor(Color.WHITE);
+            heading.setTextSize(16);
+            LinearLayout.LayoutParams headingSize = new LinearLayout.LayoutParams(-1, -2);
+            headingSize.bottomMargin = dp(8);
+            list.addView(heading, headingSize);
+        }
         FrameLayout.LayoutParams panelSize = new FrameLayout.LayoutParams(
                 Math.min(dp(620), root.getWidth() - dp(32)), -2, Gravity.CENTER);
-        menuPanel.addView(list, panelSize);
+        View panelContent = list;
+        // Eight rows of dp(60) plus padding already pass a 720p TV, so a longer list scrolls.
+        if (root.getHeight() > 0 && entries.length + (title == null ? 0 : 1) > 7) {
+            ScrollView scroll = new ScrollView(this);
+            scroll.addView(list);
+            panelContent = scroll;
+            panelSize.height = root.getHeight() - dp(80);
+        }
+        menuPanel.addView(panelContent, panelSize);
+        Button firstItem = null;
         for (int i = 0; i < entries.length; i++) {
             final int index = i;
             Button item = button(entries[i], list);
+            // One line per entry keeps the panel height predictable for long addresses.
+            item.setMaxLines(1);
+            item.setEllipsize(android.text.TextUtils.TruncateAt.END);
             item.setOnClickListener(view -> {
                 closeMenu();
                 choice.select(index);
             });
+            if (firstItem == null) firstItem = item;
         }
         root.addView(menuPanel, new FrameLayout.LayoutParams(-1, -1));
         cursorView.bringToFront();
         // The D-pad moves focus inside the menu; start on the first entry.
-        if (tvMode && list.getChildCount() > 0) list.getChildAt(0).requestFocus();
+        if (tvMode && firstItem != null) firstItem.requestFocus();
     }
 
     private void closeMenu() {

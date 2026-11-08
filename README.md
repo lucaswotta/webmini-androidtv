@@ -129,7 +129,7 @@ Filter lists are downloaded over HTTPS from `easylist.to` and, when a regional l
 - Address bar that accepts a URL or a search, with Google, DuckDuckGo, Bing or Brave as the engine. Queries use the chosen search engine.
 - Voice search using the remote microphone, performed by the speech recognizer installed on the device (audio is processed by that recognizer).
 - Back, forward, reload and home.
-- Up to 4 favorites are shown on the home screen so the page always fits the screen without scrolling; favorites beyond 4 remain stored.
+- Up to 4 favorites are shown on the home screen so the page always fits the screen without scrolling; favorites beyond 4 remain stored. With the grid full, the star opens the stored list so one favorite can be replaced, and Menu > Remove favorite deletes one.
 - Clear cache from the options menu. The cache is also erased when the app is closed normally; keeping the cache increases device storage use.
 - Full-screen video.
 - System light and dark themes on phones; a black interface on TV.

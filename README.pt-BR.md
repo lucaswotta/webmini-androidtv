@@ -129,7 +129,7 @@ As listas de filtro são baixadas por HTTPS de `easylist.to` e, quando uma lista
 - Barra de endereço que aceita URL ou pesquisa, com Google, DuckDuckGo, Bing ou Brave como buscador. A busca usa o buscador escolhido.
 - Pesquisa por voz com o microfone do controle, feita pelo reconhecedor de fala instalado no aparelho (o áudio é tratado por ele).
 - Voltar, avançar, recarregar e início.
-- Até 4 favoritos aparecem na tela inicial para caber na tela sem rolagem; favoritos além de 4 continuam guardados.
+- Até 4 favoritos aparecem na tela inicial para caber na tela sem rolagem; favoritos além de 4 continuam guardados. Com a grade cheia, a estrela abre a lista dos favoritos guardados para substituir um, e Menu > Remover um favorito apaga um.
 - Limpar cache pelo menu de opções. O cache também é apagado quando o app é encerrado normalmente; manter o cache aumenta o uso de armazenamento do aparelho.
 - Vídeo em tela cheia.
 - Temas claro e escuro do sistema no celular; interface preta na TV.
