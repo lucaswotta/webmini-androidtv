@@ -35,5 +35,7 @@
         <item name="android:textColorPrimary">@color/tv_text</item>
         <item name="android:textColorSecondary">@color/tv_muted</item>
         <item name="android:colorAccent">@color/brand_amber</item>
+        <item name="android:colorControlHighlight">@color/brand_amber</item>
+        <item name="android:colorButtonNormal">@color/tv_surface</item>
     </style>
 </resources>

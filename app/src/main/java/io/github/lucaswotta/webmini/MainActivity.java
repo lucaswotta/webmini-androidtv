@@ -856,6 +856,8 @@ public class MainActivity extends Activity {
         webView.setDownloadListener((downloadUrl, userAgent, contentDisposition, mimeType, contentLength) ->
                 confirmDownload(downloadUrl, userAgent, contentDisposition, mimeType));
         content.addView(webView, new FrameLayout.LayoutParams(-1, -1));
+        // Keep focus on the page; otherwise it stays highlighted on the Home button.
+        if (tvMode) webView.requestFocus();
         homePage = false;
         address.setText(url.equals(BLANK) ? currentUrl : url);
         updateFavoriteButton();
@@ -1442,13 +1444,22 @@ public class MainActivity extends Activity {
 
     private void showConfirmation(String title, String message, String acceptLabel,
                                   String cancelLabel, Runnable onAccept) {
-        (tvMode ? new AlertDialog.Builder(this, R.style.TvDialog) : new AlertDialog.Builder(this))
+        AlertDialog dialog = (tvMode ? new AlertDialog.Builder(this, R.style.TvDialog)
+                : new AlertDialog.Builder(this))
                 .setTitle(title)
                 .setMessage(message)
-                .setPositiveButton(acceptLabel, (dialog, which) -> onAccept.run())
+                .setPositiveButton(acceptLabel, (view, which) -> onAccept.run())
                 .setNegativeButton(cancelLabel, null)
                 .setCancelable(true)
-                .show();
+                .create();
+        dialog.show();
+        if (!tvMode) return;
+        // Same amber focus as the rest of the interface instead of the system pill.
+        for (int which : new int[]{AlertDialog.BUTTON_POSITIVE, AlertDialog.BUTTON_NEGATIVE}) {
+            Button action = dialog.getButton(which);
+            action.setBackgroundResource(R.drawable.tv_button);
+            action.setTextColor(getResources().getColorStateList(R.color.tv_button_text, getTheme()));
+        }
     }
 
     private void confirmDownload(String url, String userAgent,
@@ -1603,6 +1614,7 @@ public class MainActivity extends Activity {
         }
         navigateTo(url);
         address.clearFocus();
+        if (tvMode && webView != null) webView.requestFocus();
     }
 
     private void hideFullscreen() {
