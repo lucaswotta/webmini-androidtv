@@ -62,4 +62,8 @@
     <string name="regional_none">none</string>
     <string name="http_form_blocked">Forms sent over an unencrypted HTTP connection are blocked</string>
     <string name="action_search">Search</string>
+    <string name="menu_preferences">Preferences</string>
+    <string name="desktop_site_on">Desktop site: on</string>
+    <string name="desktop_site_off">Desktop site: off</string>
+    <string name="text_size">Text size: %1$d%%</string>
 </resources>

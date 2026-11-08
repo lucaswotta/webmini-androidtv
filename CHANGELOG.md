@@ -1,18 +1,22 @@
 # Changelog
 
-## 0.3.1 (2026-11-08)
+## 0.3.1 (2026-11-07)
 
 ### Added
 
 - The D-pad reaches the address bar and the toolbar: up at the top of a page focuses the address bar, left and right move between the buttons, down returns to the pointer.
 - With 4 favorites saved, the star lists them so one can be replaced; "Remove favorite" in the options menu deletes one.
 - Menu panels with more than seven rows scroll, and can carry a title.
+- Menu > Preferences groups the search engine, desktop site (desktop Chrome user agent) and text size (100, 125, 150%).
+- Blocked request count for the current page next to the ad blocking option in the menu.
+- The pointer scrolls pages sideways at the left and right edges.
 - Ad blocking options screenshot in the README.
 
 ### Changed
 
 - Toolbar focus is read from the real focus instead of a flag, and leaving the toolbar or the address bar moves focus to the page rather than back to the Home button.
 - The analog stick moves the pointer only over web pages.
+- Address bar parsing moved into `NavigationPolicy.addressToUrl` with tests; `localhost` and IPv4 addresses open over HTTP instead of becoming a search.
 
 ### Fixed
 

@@ -80,4 +80,16 @@ public class NavigationPolicyTest {
         assertFalse(NavigationPolicy.blocksHttpForm("https://example.com/login", "POST"));
         assertFalse(NavigationPolicy.blocksHttpForm("intent://x", "POST"));
     }
+
+    @Test
+    public void parsesWhatIsTypedInTheAddressBar() {
+        NavigationPolicy.Search search = query -> "search:" + query;
+        assertEquals("https://example.com", NavigationPolicy.addressToUrl("example.com", search));
+        assertEquals("http://example.com", NavigationPolicy.addressToUrl("http://example.com", search));
+        assertEquals("search:two words", NavigationPolicy.addressToUrl("two words", search));
+        assertEquals("search:android", NavigationPolicy.addressToUrl("android", search));
+        assertEquals("http://localhost:8080", NavigationPolicy.addressToUrl("localhost:8080", search));
+        assertEquals("http://192.168.0.10:8765/x", NavigationPolicy.addressToUrl("192.168.0.10:8765/x", search));
+        assertEquals("https://example.com/path?q=1", NavigationPolicy.addressToUrl("example.com/path?q=1", search));
+    }
 }

@@ -120,6 +120,8 @@ public class MainActivity extends Activity {
     private boolean cursorShown = true;
     private long edgeScrollStarted;
     private int edgeScrollDirection;
+    private long edgeScrollXStarted;
+    private int edgeScrollXDirection;
     private final Runnable hideCursor = () -> {
         if (tvMode && cursorShown) {
             cursorView.setVisibility(View.INVISIBLE);
@@ -154,6 +156,12 @@ public class MainActivity extends Activity {
             new java.util.concurrent.atomic.AtomicInteger();
     private static final Object ENGINE_LOCK = new Object();
     private int engineOwner;
+    private static final String DESKTOP_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) "
+            + "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+    private final java.util.concurrent.atomic.AtomicInteger blockedCount =
+            new java.util.concurrent.atomic.AtomicInteger();
+    private boolean desktopSite;
+    private int textZoom = 100;
     private final java.util.Set<String> exemptOrigins =
             java.util.Collections.synchronizedSet(new java.util.HashSet<>());
     private final ExecutorService adBlockExecutor = Executors.newSingleThreadExecutor();
@@ -188,6 +196,9 @@ public class MainActivity extends Activity {
         engineOwner = ENGINE_OWNER.incrementAndGet();
         adBlockEnabled = getPreferences(MODE_PRIVATE).getBoolean("adBlockEnabled", true);
         popupsBlocked = getPreferences(MODE_PRIVATE).getBoolean("popupsBlocked", true);
+        desktopSite = getPreferences(MODE_PRIVATE).getBoolean("desktopSite", false);
+        int savedZoom = getPreferences(MODE_PRIVATE).getInt("textZoom", 100);
+        textZoom = savedZoom == 125 || savedZoom == 150 ? savedZoom : 100;
         loadFavorites();
 
         root = new FrameLayout(this);
@@ -732,6 +743,7 @@ public class MainActivity extends Activity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         if (Build.VERSION.SDK_INT >= 26) settings.setSafeBrowsingEnabled(true);
         applyPopupPolicy(settings);
+        applyViewSettings(settings);
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view,
@@ -760,6 +772,7 @@ public class MainActivity extends Activity {
                                       android.graphics.Bitmap favicon) {
                 if (view == webView && !BLANK.equals(pageUrl)) {
                     navigationErrorShown = false;
+                    blockedCount.set(0);
                     currentUrl = pageUrl;
                     if (loadingLine.getVisibility() != View.VISIBLE) showLoading();
                 }
@@ -961,6 +974,20 @@ public class MainActivity extends Activity {
     }
 
     private void moveCursorPixels(float horizontal, float vertical) {
+        float nextX = cursorX + horizontal;
+        int sideDirection = nextX > root.getWidth() - dp(28) ? 1 : nextX < 0 ? -1 : 0;
+        if (sideDirection != 0 && webView != null) {
+            long now = SystemClock.uptimeMillis();
+            if (edgeScrollXDirection != sideDirection) {
+                edgeScrollXDirection = sideDirection;
+                edgeScrollXStarted = now;
+            }
+            webView.scrollBy(sideDirection
+                    * dp(3 + Math.min(17, (int) ((now - edgeScrollXStarted) / 180))), 0);
+        } else {
+            edgeScrollXDirection = 0;
+            edgeScrollXStarted = 0;
+        }
         float nextY = cursorY + vertical;
         int direction = nextY > root.getHeight() - dp(32) ? 1 : nextY < 0 ? -1 : 0;
         if (direction != 0 && webView != null) {
@@ -1197,35 +1224,67 @@ public class MainActivity extends Activity {
     }
 
     private void showMenu() {
-        String popupLabel = getString(popupsBlocked
-                ? R.string.popup_block_enabled : R.string.popup_block_disabled);
         String adBlockLabel = getString(adBlockStateLabel());
-        boolean canRemoveFavorite = !favorites.isEmpty();
-        ArrayList<String> entries = new ArrayList<>();
-        entries.add(getString(R.string.menu_forward));
-        entries.add(popupLabel);
-        entries.add(adBlockLabel);
-        entries.add(getString(R.string.menu_search_engine, SEARCH_ENGINES[searchEngineIndex()][0]));
-        if (canRemoveFavorite) entries.add(getString(R.string.menu_remove_favorite));
-        entries.add(getString(R.string.menu_clear_data));
-        entries.add(getString(R.string.menu_about));
-        final int clearDataAt = canRemoveFavorite ? 5 : 4;
-        showChoices(entries.toArray(new String[0]), which -> {
-            if (which == 0 && webView != null && webView.canGoForward()) webView.goForward();
+        int blocked = blockedCount.get();
+        if (adBlockEnabled && blocked > 0 && !homePage) adBlockLabel += " (" + blocked + ")";
+        ArrayList<String> labels = new ArrayList<>();
+        ArrayList<Runnable> actions = new ArrayList<>();
+        labels.add(getString(R.string.menu_forward));
+        actions.add(() -> {
+            if (webView != null && webView.canGoForward()) webView.goForward();
+        });
+        labels.add(getString(popupsBlocked
+                ? R.string.popup_block_enabled : R.string.popup_block_disabled));
+        actions.add(() -> {
+            popupsBlocked = !popupsBlocked;
+            getPreferences(MODE_PRIVATE).edit().putBoolean("popupsBlocked", popupsBlocked).apply();
+            if (webView != null) applyPopupPolicy(webView.getSettings());
+        });
+        labels.add(adBlockLabel);
+        actions.add(this::adBlockMenu);
+        labels.add(getString(R.string.menu_preferences));
+        actions.add(this::preferencesMenu);
+        if (!favorites.isEmpty()) {
+            labels.add(getString(R.string.menu_remove_favorite));
+            actions.add(this::removeFavorite);
+        }
+        labels.add(getString(R.string.menu_clear_data));
+        actions.add(this::clearDataMenu);
+        labels.add(getString(R.string.menu_about));
+        actions.add(() -> navigateTo(ABOUT));
+        showChoices(labels.toArray(new String[0]), which -> actions.get(which).run());
+    }
+
+    private void preferencesMenu() {
+        String[] entries = {
+                getString(R.string.menu_search_engine, SEARCH_ENGINES[searchEngineIndex()][0]),
+                getString(desktopSite ? R.string.desktop_site_on : R.string.desktop_site_off),
+                getString(R.string.text_size, textZoom)};
+        showChoices(entries, which -> {
+            if (which == 0) chooseSearchEngine();
             if (which == 1) {
-                popupsBlocked = !popupsBlocked;
-                getPreferences(MODE_PRIVATE).edit()
-                        .putBoolean("popupsBlocked", popupsBlocked).apply();
-                if (webView != null) applyPopupPolicy(webView.getSettings());
+                desktopSite = !desktopSite;
+                getPreferences(MODE_PRIVATE).edit().putBoolean("desktopSite", desktopSite).apply();
+                if (webView != null) {
+                    applyViewSettings(webView.getSettings());
+                    reloadPage();
+                }
             }
-            if (which == 2) adBlockMenu();
-            if (which == 3) chooseSearchEngine();
-            if (canRemoveFavorite && which == 4) removeFavorite();
-            if (which == clearDataAt) clearDataMenu();
-            if (which == clearDataAt + 1) {
-                navigateTo(ABOUT);
+            if (which == 2) {
+                textZoom = textZoom >= 150 ? 100 : textZoom + 25;
+                getPreferences(MODE_PRIVATE).edit().putInt("textZoom", textZoom).apply();
+                if (webView != null) applyViewSettings(webView.getSettings());
             }
         });
+    }
+
+    // Phones get the mobile layout by default; a TV at couch distance often reads better with
+    // the desktop one and a larger text.
+    private void applyViewSettings(WebSettings settings) {
+        settings.setTextZoom(textZoom);
+        settings.setUserAgentString(desktopSite ? DESKTOP_USER_AGENT : null);
+        settings.setUseWideViewPort(desktopSite);
+        settings.setLoadWithOverviewMode(desktopSite);
     }
 
     private void adBlockMenu() {
@@ -1383,6 +1442,7 @@ public class MainActivity extends Activity {
             blocked = isAdHost(request.getUrl().getHost());
         }
         if (!blocked) return null;
+        blockedCount.incrementAndGet();
         return new WebResourceResponse("text/plain", "UTF-8",
                 new ByteArrayInputStream(EMPTY_BODY));
     }
@@ -1754,14 +1814,7 @@ public class MainActivity extends Activity {
     private void openAddress() {
         String input = address.getText().toString().trim();
         if (input.isEmpty()) return;
-        String url;
-        if (input.startsWith("https://") || input.startsWith("http://")) {
-            url = input;
-        } else if (input.contains(" ") || !input.contains(".")) {
-            url = searchUrl(input);
-        } else {
-            url = "https://" + input;
-        }
+        String url = NavigationPolicy.addressToUrl(input, this::searchUrl);
         navigateTo(url);
         address.clearFocus();
         if (tvMode && webView != null) webView.requestFocus();
