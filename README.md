@@ -129,6 +129,9 @@ Filter lists are downloaded over HTTPS from `easylist.to` and, when a regional l
 - Address bar that accepts a URL or a search, with Google, DuckDuckGo, Bing or Brave as the engine. Queries use the chosen search engine.
 - Voice search using the remote microphone, performed by the speech recognizer installed on the device (audio is processed by that recognizer).
 - Back, forward, reload and home.
+- Menu > Preferences: search engine, desktop site (sends a desktop Chrome user agent and reloads) and text size (100, 125 or 150%).
+- The menu shows how many requests were blocked on the current page, for example "on (23)".
+- Local addresses typed without a scheme (`localhost:8080`, `192.168.0.10`) open over HTTP, with the HTTP warning.
 - Up to 4 favorites are shown on the home screen so the page always fits the screen without scrolling; favorites beyond 4 remain stored. With the grid full, the star opens the stored list so one favorite can be replaced, and Menu > Remove favorite deletes one.
 - Clear cache from the options menu. The cache is also erased when the app is closed normally; keeping the cache increases device storage use.
 - Full-screen video.
@@ -141,7 +144,7 @@ Filter lists are downloaded over HTTPS from `easylist.to` and, when a regional l
 | D-pad | Moves focus on the home screen and in menus; moves the pointer on web pages. Holding a direction speeds the pointer up. |
 | Up at the top of a page | Focuses the address bar, with the current address selected. |
 | Down in the address bar | Leaves the address bar and returns to the pointer. |
-| Pointer at the top or bottom edge | Scrolls the page. |
+| Pointer at an edge of the screen | Scrolls the page up, down, left or right, faster the longer it stays there. |
 | OK, Enter or gamepad A | Clicks under the pointer. In the address bar, opens the keyboard. |
 | Back or gamepad B | Closes the menu or the focused field, leaves the toolbar and full screen, then goes back one page. On the home screen, exits. |
 | Left and right in a text field | Move the text cursor, or leave the field at the ends of the text. |

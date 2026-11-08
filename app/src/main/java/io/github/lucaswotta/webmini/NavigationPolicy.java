@@ -7,6 +7,25 @@ import java.util.Locale;
 final class NavigationPolicy {
     enum Decision { ALLOW, CONFIRM_HTTP, BLOCK }
 
+    interface Search {
+        String url(String query);
+    }
+
+    // Turns what was typed in the address bar into a URL: a full URL is kept, text with spaces
+    // or without a dot is searched, and host names get HTTPS (HTTP for local addresses, which
+    // have no certificate; the HTTP warning still applies).
+    static String addressToUrl(String input, Search search) {
+        String text = input.trim();
+        String lower = text.toLowerCase(Locale.ROOT);
+        if (lower.startsWith("https://") || lower.startsWith("http://")) return text;
+        if (text.contains(" ")) return search.url(text);
+        String host = text.split("[/?#]", 2)[0].replaceFirst(":\\d{1,5}$", "");
+        boolean local = host.equals("localhost") || host.matches("\\d{1,3}(\\.\\d{1,3}){3}");
+        if (local) return "http://" + text;
+        if (!host.contains(".")) return search.url(text);
+        return "https://" + text;
+    }
+
     static Decision decide(String url) {
         String origin = origin(url);
         if (origin == null) return Decision.BLOCK;

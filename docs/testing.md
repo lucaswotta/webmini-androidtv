@@ -31,6 +31,10 @@ Run on a TV device, with the debug or release build.
 | Toolbar | Repeat the previous case 5 times, then move the pointer | Pointer still moves; no button stays highlighted |
 | Favorites | With 4 saved, focus the star and press OK | List of stored favorites; choosing one replaces it with the current page |
 | Favorites | Menu, "Remove favorite", choose one | The favorite disappears from the home grid |
+| Preferences | Menu > Preferences > Desktop site, open `https://httpbin.org/user-agent` | User agent is the desktop Chrome string |
+| Preferences | Menu > Preferences > Text size | Cycles 100, 125, 150% and applies without reload |
+| Blocking | Open `uol.com.br`, open the menu | "on (N)" with N above zero |
+| Pointer | Open a page wider than the screen, hold right | The page scrolls sideways |
 | Lifecycle | Visit a site, press home, reopen the app without killing it | Pages load and timers run |
 
 ## Devices

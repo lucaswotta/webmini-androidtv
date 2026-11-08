@@ -61,4 +61,8 @@
     <string name="regional_none">nenhuma</string>
     <string name="http_form_blocked">Formulários enviados por conexão HTTP sem criptografia são bloqueados</string>
     <string name="action_search">Pesquisar</string>
+    <string name="menu_preferences">Preferências</string>
+    <string name="desktop_site_on">Site para computador: ligado</string>
+    <string name="desktop_site_off">Site para computador: desligado</string>
+    <string name="text_size">Tamanho do texto: %1$d%%</string>
 </resources>

@@ -129,6 +129,9 @@ As listas de filtro são baixadas por HTTPS de `easylist.to` e, quando uma lista
 - Barra de endereço que aceita URL ou pesquisa, com Google, DuckDuckGo, Bing ou Brave como buscador. A busca usa o buscador escolhido.
 - Pesquisa por voz com o microfone do controle, feita pelo reconhecedor de fala instalado no aparelho (o áudio é tratado por ele).
 - Voltar, avançar, recarregar e início.
+- Menu > Preferências: buscador, site para computador (envia o user agent do Chrome de computador e recarrega) e tamanho do texto (100, 125 ou 150%).
+- O menu mostra quantas requisições foram bloqueadas na página atual, por exemplo "ligado (23)".
+- Endereços locais digitados sem esquema (`localhost:8080`, `192.168.0.10`) abrem por HTTP, com o aviso de HTTP.
 - Até 4 favoritos aparecem na tela inicial para caber na tela sem rolagem; favoritos além de 4 continuam guardados. Com a grade cheia, a estrela abre a lista dos favoritos guardados para substituir um, e Menu > Remover um favorito apaga um.
 - Limpar cache pelo menu de opções. O cache também é apagado quando o app é encerrado normalmente; manter o cache aumenta o uso de armazenamento do aparelho.
 - Vídeo em tela cheia.
@@ -141,7 +144,7 @@ As listas de filtro são baixadas por HTTPS de `easylist.to` e, quando uma lista
 | Direcional | Move o foco na tela inicial e nos menus; na página, move o ponteiro. Segurar a direção acelera o ponteiro. |
 | Cima no topo da página | Foca a barra de endereço, com o endereço atual selecionado. |
 | Baixo na barra de endereço | Sai da barra de endereço e volta ao ponteiro. |
-| Ponteiro na borda de cima ou de baixo | Rola a página. |
+| Ponteiro numa borda da tela | Rola a página para cima, baixo, esquerda ou direita, mais rápido quanto mais tempo ficar ali. |
 | OK, Enter ou botão A do gamepad | Clica sob o ponteiro. Na barra de endereço, abre o teclado. |
 | Voltar ou botão B do gamepad | Fecha o menu ou o campo em foco, sai da barra de ferramentas e da tela cheia e depois volta uma página. Na tela inicial, sai do app. |
 | Esquerda e direita num campo de texto | Movem o cursor do texto ou deixam o campo nas pontas do texto. |
