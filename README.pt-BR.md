@@ -139,11 +139,13 @@ As listas de filtro são baixadas por HTTPS de `easylist.to` e, quando uma lista
 | Entrada | Ação |
 | --- | --- |
 | Direcional | Move o foco na tela inicial e nos menus; na página, move o ponteiro. Segurar a direção acelera o ponteiro. |
+| Cima no topo da página | Foca a barra de endereço, com o endereço atual selecionado. |
+| Baixo na barra de endereço | Sai da barra de endereço e volta ao ponteiro. |
 | Ponteiro na borda de cima ou de baixo | Rola a página. |
-| OK, Enter ou botão A do gamepad | Clica sob o ponteiro. |
-| Voltar ou botão B do gamepad | Fecha o menu, sai da tela cheia ou volta uma página. Na tela inicial, sai do app. |
-| Esquerda e direita num campo de texto | Movem o cursor do texto. |
-| Analógico do gamepad | Move o ponteiro. |
+| OK, Enter ou botão A do gamepad | Clica sob o ponteiro. Na barra de endereço, abre o teclado. |
+| Voltar ou botão B do gamepad | Fecha o menu ou o campo em foco, sai da barra de ferramentas e da tela cheia e depois volta uma página. Na tela inicial, sai do app. |
+| Esquerda e direita num campo de texto | Movem o cursor do texto ou deixam o campo nas pontas do texto. |
+| Analógico do gamepad | Move o ponteiro. É ignorado na tela inicial, nos menus e na barra de ferramentas. |
 
 O ponteiro some depois de 2,5 s sem uso e volta na próxima tecla.
 

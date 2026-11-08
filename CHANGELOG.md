@@ -15,7 +15,8 @@
 
 ### Changed
 
-- D-pad moves focus on the home screen and in menus, and moves the pointer on web pages.
+- D-pad moves focus on the home screen, in menus and in the toolbar, and moves the pointer on web pages; up at the top of a page focuses the address bar and down leaves it again.
+- The analog stick moves the pointer only over web pages; it is ignored on the home screen, in menus and in the toolbar.
 - Up to 4 favorites are shown on the home screen to fit without scrolling; favorites beyond 4 remain stored.
 - Preferences and the regional filter list choice are stored in private app storage.
 - CI builds the release variant with R8, checks ABI splits and the JNI library and writes `SHA256SUMS.txt`.

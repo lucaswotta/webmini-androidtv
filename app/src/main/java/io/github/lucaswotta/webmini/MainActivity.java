@@ -113,6 +113,8 @@ public class MainActivity extends Activity {
     private final ArrayList<String> favorites = new ArrayList<>();
     private boolean homePage;
     private boolean tvMode;
+    // D-pad owns the toolbar while this is set; the pointer takes over again on exit.
+    private boolean toolbarFocus;
     private boolean cursorShown = true;
     private long edgeScrollStarted;
     private int edgeScrollDirection;
@@ -353,6 +355,8 @@ public class MainActivity extends Activity {
             webView = null;
         }
         homePage = true;
+        toolbarFocus = false;
+        if (address.isFocused()) address.clearFocus();
         currentUrl = HOME;
         address.setText("");
         favoriteButton.setText("☆");
@@ -888,7 +892,10 @@ public class MainActivity extends Activity {
     public boolean onGenericMotionEvent(MotionEvent event) {
         if (tvMode && event.getAction() == MotionEvent.ACTION_MOVE
                 && (event.getSource() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) {
-            if (focusedEditor() != null || keyboardAcceptingText()) {
+            // Focus drives the home screen, menus and the toolbar, so the stick only
+            // moves the pointer over the web page.
+            if (homePage || menuPanel != null || toolbarFocus
+                    || focusedEditor() != null || keyboardAcceptingText()) {
                 analogX = 0;
                 analogY = 0;
                 return true;
@@ -925,11 +932,18 @@ public class MainActivity extends Activity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if (tvMode && event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_B) {
-            if (event.getAction() == KeyEvent.ACTION_UP) navigateBack();
+        int key = event.getKeyCode();
+        EditText editor = tvMode ? focusedEditor() : null;
+        if (tvMode && key == KeyEvent.KEYCODE_BUTTON_B) {
+            if (event.getAction() == KeyEvent.ACTION_UP) {
+                // Leaving a half-typed address or the toolbar first keeps Back from
+                // navigating away while the user is still editing.
+                if (editor != null) leaveEditor(editor);
+                else if (toolbarFocus && menuPanel == null) leaveToolbar();
+                else navigateBack();
+            }
             return true;
         }
-        EditText editor = tvMode ? focusedEditor() : null;
         if (tvMode && editor == null && keyboardAcceptingText()) {
             return super.dispatchKeyEvent(event);
         }
@@ -938,22 +952,56 @@ public class MainActivity extends Activity {
             digitalY = 0;
             if (cursorView != null) cursorView.removeCallbacks(cursorTick);
             cursorTickScheduled = false;
-            int key = event.getKeyCode();
             if (key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT) {
-                if (event.getAction() == KeyEvent.ACTION_DOWN) moveTextCaret(editor,
-                        key == KeyEvent.KEYCODE_DPAD_LEFT ? -1 : 1);
+                int direction = key == KeyEvent.KEYCODE_DPAD_LEFT ? -1 : 1;
+                if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                    if (moveTextCaret(editor, direction)) return true;
+                    // At the text edge the key hands focus to the neighbouring button.
+                    return super.dispatchKeyEvent(event);
+                }
+                return true;
+            }
+            if (!homePage && key == KeyEvent.KEYCODE_DPAD_DOWN
+                    && event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                leaveEditor(editor);
+                return true;
+            }
+            if (!keyboardAcceptingText() && event.getAction() == KeyEvent.ACTION_DOWN
+                    && event.getRepeatCount() == 0
+                    && (key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER
+                            || key == KeyEvent.KEYCODE_BUTTON_A)) {
+                showSoftKeyboard(editor);
+                return true;
+            }
+            return super.dispatchKeyEvent(event);
+        }
+        if (tvMode && toolbarFocus && menuPanel == null && !homePage) {
+            if (key == KeyEvent.KEYCODE_DPAD_UP
+                    || (key == KeyEvent.KEYCODE_DPAD_DOWN
+                            && event.getAction() == KeyEvent.ACTION_DOWN)) {
+                if (key == KeyEvent.KEYCODE_DPAD_DOWN) leaveToolbar();
                 return true;
             }
             return super.dispatchKeyEvent(event);
         }
         // The home screen has no page to point at, so the D-pad moves focus between its buttons.
         if (tvMode && menuPanel == null && !homePage) {
-            int key = event.getKeyCode();
             if (key == KeyEvent.KEYCODE_DPAD_UP || key == KeyEvent.KEYCODE_DPAD_DOWN
                     || key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT
                     || key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER
                     || key == KeyEvent.KEYCODE_BUTTON_A) {
                 if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                    if (key == KeyEvent.KEYCODE_DPAD_UP && event.getRepeatCount() == 0
+                            && fullscreenView == null
+                            && (webView == null || webView.getScrollY() == 0)) {
+                        // Nothing scrolls at the top of the page, so the key reaches the
+                        // address bar instead of the pointer.
+                        toolbarFocus = true;
+                        address.requestFocus();
+                        if (cursorView != null) cursorView.removeCallbacks(hideCursor);
+                        hideCursor.run();
+                        return true;
+                    }
                     revealCursor();
                     if (key == KeyEvent.KEYCODE_DPAD_UP) digitalY = -1;
                     if (key == KeyEvent.KEYCODE_DPAD_DOWN) digitalY = 1;
@@ -993,17 +1041,47 @@ public class MainActivity extends Activity {
         return inputMethod != null && inputMethod.isAcceptingText();
     }
 
-    private void moveTextCaret(EditText editor, int direction) {
+    private void showSoftKeyboard(EditText editor) {
+        InputMethodManager inputMethod = (InputMethodManager)
+                getSystemService(INPUT_METHOD_SERVICE);
+        if (inputMethod != null) {
+            inputMethod.showSoftInput(editor, InputMethodManager.SHOW_IMPLICIT);
+        }
+    }
+
+    private void leaveEditor(EditText editor) {
+        toolbarFocus = false;
+        editor.clearFocus();
+        InputMethodManager inputMethod = (InputMethodManager)
+                getSystemService(INPUT_METHOD_SERVICE);
+        if (inputMethod != null) {
+            inputMethod.hideSoftInputFromWindow(editor.getWindowToken(), 0);
+        }
+        if (!homePage) revealCursor();
+    }
+
+    private void leaveToolbar() {
+        toolbarFocus = false;
+        View focused = getCurrentFocus();
+        if (focused != null) focused.clearFocus();
+        revealCursor();
+    }
+
+    // Returns false when the caret is already at the edge, so the key can move focus instead.
+    private boolean moveTextCaret(EditText editor, int direction) {
         int start = editor.getSelectionStart();
         int end = editor.getSelectionEnd();
-        if (start < 0 || end < 0) return;
+        if (start < 0 || end < 0) return false;
         if (start != end) {
             editor.setSelection(direction < 0 ? Math.min(start, end) : Math.max(start, end));
-            return;
+            return true;
         }
-        if ((direction < 0 && start == 0) || (direction > 0 && start == editor.length())) return;
+        if ((direction < 0 && start == 0) || (direction > 0 && start == editor.length())) {
+            return false;
+        }
         int next = Character.offsetByCodePoints(editor.getText(), start, direction);
         editor.setSelection(next);
+        return true;
     }
 
     private int adBlockStateLabel() {
@@ -1499,6 +1577,7 @@ public class MainActivity extends Activity {
             url = "https://" + input;
         }
         navigateTo(url);
+        toolbarFocus = false;
         address.clearFocus();
     }
 
