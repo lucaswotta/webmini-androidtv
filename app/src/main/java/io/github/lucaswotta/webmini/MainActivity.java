@@ -474,6 +474,8 @@ public class MainActivity extends Activity {
             int shownFavorites = Math.min(favorites.size(), MAX_FAVORITES);
             for (int i = 0; i < shownFavorites; i += 2) {
                 LinearLayout row = new LinearLayout(this);
+                // A lone favorite keeps half the row instead of stretching across it.
+                row.setWeightSum(2);
                 LinearLayout.LayoutParams rowSize = new LinearLayout.LayoutParams(-1, dp(compact ? 56 : 64));
                 rowSize.setMargins(-dp(4), 0, -dp(4), dp(4));
                 landing.addView(row, rowSize);

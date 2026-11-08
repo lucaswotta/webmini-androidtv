@@ -14,6 +14,10 @@
 - Toolbar focus is read from the real focus instead of a flag, and leaving the toolbar or the address bar moves focus to the page rather than back to the Home button.
 - The analog stick moves the pointer only over web pages.
 
+### Fixed
+
+- With an odd number of favorites the last one stretched across the whole row.
+
 ## 0.3.0 (2026-11-07)
 
 Redesign, search and filtering options, and a round of fixes from an independent code review.
