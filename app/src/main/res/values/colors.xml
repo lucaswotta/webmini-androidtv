@@ -1,3 +1,19 @@
 <resources>
-    <color name="brand_blue">#2580FD</color>
+    <color name="brand_amber">#F2BB66</color>
+    <color name="brand_pressed">#DCA452</color>
+    <color name="brand_ink">#171714</color>
+    <color name="brand_paper">#F4F0E6</color>
+    <color name="tv_surface">#181916</color>
+    <color name="tv_text">#F4F0E6</color>
+    <color name="tv_muted">#B9B9AC</color>
+    <color name="tv_border">#75786B</color>
+    <color name="ui_background">#F4F0E6</color>
+    <color name="ui_surface">#FFFFFF</color>
+    <color name="ui_text">#23251F</color>
+    <color name="ui_muted">#5D6255</color>
+    <color name="ui_border">#777D6D</color>
+    <color name="ui_accent">#805000</color>
+    <color name="disabled_text">#6B7062</color>
+    <color name="tv_disabled">#9B9D90</color>
+    <color name="tv_divider">#41443B</color>
 </resources>

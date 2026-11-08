@@ -1,9 +1,4 @@
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <shape android:shape="rectangle">
-            <corners android:radius="24dp" />
-            <solid android:color="@color/brand_blue" />
-        </shape>
-    </item>
-    <item android:drawable="@drawable/ic_launcher_foreground" />
-</layer-list>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="96dp" android:height="96dp" android:viewportWidth="96" android:viewportHeight="96" >
+    <path android:fillColor="?android:attr/textColorPrimary" android:pathData="M8,18 H22 L34,57 L46,32 L58,57 L64,76 H52 L46,63 L40,76 H26 Z" />
+    <path android:fillColor="?android:attr/colorAccent" android:pathData="M58,57 L70,18 H84 L64,76 Z" />
+</vector>

@@ -58,4 +58,5 @@
     <string name="regional_es">español</string>
     <string name="regional_none">ninguna</string>
     <string name="http_form_blocked">Los formularios enviados por HTTP sin cifrado están bloqueados</string>
+    <string name="action_search">Buscar</string>
 </resources>

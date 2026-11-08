@@ -59,4 +59,5 @@
     <string name="regional_es">Spanish</string>
     <string name="regional_none">none</string>
     <string name="http_form_blocked">Forms sent over an unencrypted HTTP connection are blocked</string>
+    <string name="action_search">Search</string>
 </resources>

@@ -47,6 +47,9 @@ import android.webkit.CookieManager;
 import android.webkit.URLUtil;
 import android.graphics.Typeface;
 import android.text.InputType;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.TextAppearanceSpan;
 import android.widget.ScrollView;
 import org.json.JSONArray;
 
@@ -217,10 +220,9 @@ public class MainActivity extends Activity {
 
         LinearLayout toolbar = new LinearLayout(this);
         toolbar.setGravity(Gravity.CENTER);
-        if (tvMode) {
-            toolbar.setBackgroundColor(Color.BLACK);
-            toolbar.setPadding(0, 0, 0, 0);
-        }
+        toolbar.setBackgroundColor(getResources().getColor(
+                tvMode ? R.color.tv_surface : R.color.ui_background));
+        toolbar.setPadding(dp(tvMode ? 16 : 4), dp(4), dp(tvMode ? 16 : 4), dp(4));
         page.addView(toolbar, new LinearLayout.LayoutParams(-1, -2));
         Button home = button("⌂", toolbar);
         home.setContentDescription(getString(R.string.nav_home));
@@ -235,13 +237,11 @@ public class MainActivity extends Activity {
         address.setSelectAllOnFocus(true);
         address.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
         address.setImeOptions(EditorInfo.IME_ACTION_GO);
-        if (tvMode) {
-            address.setBackgroundResource(R.drawable.tv_address);
-            address.setTextColor(Color.rgb(245, 244, 239));
-            address.setHintTextColor(Color.rgb(170, 170, 170));
-            address.setTextSize(18);
-            address.setPadding(dp(18), 0, dp(18), 0);
-        }
+        address.setBackgroundResource(R.drawable.tv_address);
+        address.setTextColor(getResources().getColor(tvMode ? R.color.tv_text : R.color.ui_text));
+        address.setHintTextColor(getResources().getColor(tvMode ? R.color.tv_muted : R.color.ui_muted));
+        address.setTextSize(tvMode ? 17 : 16);
+        address.setPadding(dp(16), 0, dp(16), 0);
         address.setOnEditorActionListener((view, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_GO
                     || (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
@@ -255,10 +255,11 @@ public class MainActivity extends Activity {
         back.setOnClickListener(view -> navigateBack());
         FrameLayout addressBox = new FrameLayout(this);
         toolbar.addView(addressBox, new LinearLayout.LayoutParams(
-                0, tvMode ? dp(52) : -2, 1));
-        addressBox.addView(address, new FrameLayout.LayoutParams(-1, tvMode ? -1 : -2));
+                0, dp(tvMode ? 48 : 44), 1));
+        addressBox.addView(address, new FrameLayout.LayoutParams(-1, -1));
         loadingLine = new View(this);
-        loadingLine.setBackgroundColor(Color.rgb(56, 189, 248));
+        loadingLine.setBackgroundColor(getResources().getColor(
+                tvMode ? R.color.brand_amber : R.color.ui_accent));
         loadingLine.setVisibility(View.INVISIBLE);
         loadingLine.setPivotX(0);
         loadingLine.setScaleX(0);
@@ -275,7 +276,7 @@ public class MainActivity extends Activity {
 
         if (tvMode) {
             View line = new View(this);
-            line.setBackgroundColor(Color.rgb(245, 244, 239));
+            line.setBackgroundColor(getResources().getColor(R.color.tv_border));
             page.addView(line, new LinearLayout.LayoutParams(-1, dp(1)));
         }
         content = new FrameLayout(this);
@@ -307,18 +308,25 @@ public class MainActivity extends Activity {
         button.setMinWidth(0);
         button.setMinimumWidth(0);
         LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(
-                parent.getOrientation() == LinearLayout.VERTICAL ? -1 : tvMode ? dp(52) : -2,
-                tvMode ? dp(52) : -2);
-        if (tvMode) {
-            button.setAllCaps(false);
-            button.setTextSize(parent.getOrientation() == LinearLayout.VERTICAL ? 18 : 24);
-            button.setTextColor(getResources().getColorStateList(R.color.tv_button_text));
-            button.setBackgroundResource(R.drawable.tv_button);
-            button.setPadding(parent.getOrientation() == LinearLayout.VERTICAL ? dp(18) : 0,
-                    0, parent.getOrientation() == LinearLayout.VERTICAL ? dp(18) : 0, 0);
-            if (parent.getOrientation() == LinearLayout.VERTICAL) {
-                size.setMargins(0, dp(4), 0, dp(4));
-            }
+                dp(tvMode ? 48 : 40), dp(tvMode ? 48 : 44));
+        button.setAllCaps(false);
+        button.setTextSize(24);
+        button.setTextColor(getResources().getColorStateList(R.color.tv_button_text, getTheme()));
+        button.setBackgroundResource(R.drawable.tv_button);
+        button.setStateListAnimator(null);
+        button.setPadding(0, 0, 0, 0);
+        int icon = 0;
+        switch (label) {
+            case "⌂": icon = R.drawable.ic_home; break;
+            case "←": icon = R.drawable.ic_back; break;
+            case "⟳": icon = R.drawable.ic_reload; break;
+            case "⋮": icon = R.drawable.ic_menu; break;
+        }
+        if (icon != 0) {
+            button.setText("");
+            button.setCompoundDrawablesWithIntrinsicBounds(icon, 0, 0, 0);
+            int inset = (tvMode ? 48 : 40) / 2 - 12;
+            button.setPadding(dp(inset), 0, dp(inset), 0);
         }
         parent.addView(button, size);
         return button;
@@ -359,45 +367,53 @@ public class MainActivity extends Activity {
         favoriteButton.setEnabled(false);
         content.removeAllViews();
 
+        boolean compact = tvMode && getResources().getDisplayMetrics().heightPixels
+                / getResources().getDisplayMetrics().density < 440;
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
-        scroll.setBackgroundColor(tvMode ? Color.BLACK : Color.rgb(20, 20, 20));
+        scroll.setBackgroundColor(getResources().getColor(
+                tvMode ? android.R.color.black : R.color.ui_background));
         LinearLayout landing = new LinearLayout(this);
         landing.setOrientation(LinearLayout.VERTICAL);
-        landing.setGravity(Gravity.CENTER_HORIZONTAL);
-        landing.setPadding(dp(20), dp(28), dp(20), dp(24));
+        landing.setGravity(Gravity.CENTER);
+        landing.setPadding(dp(tvMode ? 28 : 20), dp(compact ? 8 : 24),
+                dp(tvMode ? 28 : 20), dp(compact ? 8 : 20));
         scroll.addView(landing, new ScrollView.LayoutParams(-1, -2));
 
+        LinearLayout brand = new LinearLayout(this);
+        brand.setGravity(Gravity.CENTER);
+        landing.addView(brand, new LinearLayout.LayoutParams(-1, dp(compact ? 52 : 80)));
         ImageView logo = new ImageView(this);
         logo.setImageResource(R.drawable.ic_logo);
         logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        LinearLayout.LayoutParams logoSize = new LinearLayout.LayoutParams(dp(92), dp(92));
-        logoSize.bottomMargin = dp(8);
-        landing.addView(logo, logoSize);
+        int markSize = compact ? 52 : 80;
+        LinearLayout.LayoutParams logoSize = new LinearLayout.LayoutParams(dp(markSize), dp(markSize));
+        logoSize.setMarginEnd(dp(16));
+        brand.addView(logo, logoSize);
 
         TextView title = new TextView(this);
         title.setText(R.string.app_name);
-        title.setTextColor(Color.WHITE);
-        title.setTextSize(26);
-        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        title.setGravity(Gravity.CENTER);
-        landing.addView(title, new LinearLayout.LayoutParams(-1, -2));
+        title.setTextColor(getResources().getColor(tvMode ? R.color.tv_text : R.color.ui_text));
+        title.setTextSize(compact ? 30 : 40);
+        title.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD));
+        title.setLetterSpacing(0.035f);
+        title.setIncludeFontPadding(false);
+        brand.addView(title, new LinearLayout.LayoutParams(-2, -2));
 
         LinearLayout searchRow = new LinearLayout(this);
         searchRow.setGravity(Gravity.CENTER_VERTICAL);
-        searchRow.setBackgroundResource(tvMode ? R.drawable.tv_address : R.drawable.tv_address);
-        LinearLayout.LayoutParams searchRowSize = new LinearLayout.LayoutParams(-1, dp(52));
-        searchRowSize.setMargins(0, dp(22), 0, dp(24));
+        LinearLayout.LayoutParams searchRowSize = new LinearLayout.LayoutParams(-1, dp(compact ? 56 : 64));
+        searchRowSize.setMargins(0, dp(compact ? 8 : 20), 0, dp(compact ? 8 : 24));
         landing.addView(searchRow, searchRowSize);
         homeSearch = new EditText(this);
         homeSearch.setSingleLine(true);
         homeSearch.setHint(getString(R.string.home_search_hint,
                 SEARCH_ENGINES[searchEngineIndex()][0]));
-        homeSearch.setTextColor(Color.WHITE);
-        homeSearch.setHintTextColor(Color.LTGRAY);
-        homeSearch.setTextSize(16);
-        homeSearch.setPadding(dp(14), 0, dp(8), 0);
-        homeSearch.setBackgroundColor(Color.TRANSPARENT);
+        homeSearch.setTextColor(getResources().getColor(tvMode ? R.color.tv_text : R.color.ui_text));
+        homeSearch.setHintTextColor(getResources().getColor(tvMode ? R.color.tv_muted : R.color.ui_muted));
+        homeSearch.setTextSize(tvMode ? 20 : 18);
+        homeSearch.setPadding(dp(16), 0, dp(12), 0);
+        homeSearch.setBackgroundResource(R.drawable.home_search);
         homeSearch.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_NORMAL);
         homeSearch.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
         homeSearch.setOnEditorActionListener((view, actionId, event) -> {
@@ -412,50 +428,89 @@ public class MainActivity extends Activity {
         if (voiceSearchAvailable()) {
             ImageButton micButton = new ImageButton(this);
             micButton.setImageResource(R.drawable.ic_mic);
-            micButton.setBackgroundColor(Color.TRANSPARENT);
+            micButton.setBackgroundResource(R.drawable.tv_button);
+            micButton.setPadding(dp(14), dp(14), dp(14), dp(14));
+            micButton.setStateListAnimator(null);
             micButton.setContentDescription(getString(R.string.voice_search));
             micButton.setOnClickListener(view -> startVoiceSearch());
-            searchRow.addView(micButton, new LinearLayout.LayoutParams(dp(52), -1));
+            LinearLayout.LayoutParams micSize = new LinearLayout.LayoutParams(dp(52), -1);
+            micSize.setMarginStart(dp(8));
+            searchRow.addView(micButton, micSize);
         }
         Button searchButton = new Button(this);
-        searchButton.setText("⌕");
-        searchButton.setTextColor(Color.rgb(56, 189, 248));
-        searchButton.setTextSize(23);
-        searchButton.setMinWidth(dp(52));
-        searchButton.setBackgroundColor(Color.TRANSPARENT);
+        searchButton.setText("");
+        searchButton.setContentDescription(getString(R.string.action_search));
+        searchButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_search, 0, 0, 0);
+        searchButton.setPadding(dp(14), 0, dp(14), 0);
+        searchButton.setMinWidth(0);
+        searchButton.setMinimumWidth(0);
+        searchButton.setBackgroundResource(R.drawable.tv_button);
+        searchButton.setStateListAnimator(null);
         searchButton.setOnClickListener(view -> search(homeSearch.getText().toString()));
-        searchRow.addView(searchButton, new LinearLayout.LayoutParams(dp(52), -1));
+        LinearLayout.LayoutParams submitSize = new LinearLayout.LayoutParams(dp(52), -1);
+        submitSize.setMarginStart(dp(8));
+        searchRow.addView(searchButton, submitSize);
 
         TextView favoritesTitle = new TextView(this);
         favoritesTitle.setText(R.string.favorites_title);
-        favoritesTitle.setTextColor(Color.WHITE);
-        favoritesTitle.setTextSize(18);
+        favoritesTitle.setTextColor(getResources().getColor(tvMode ? R.color.tv_muted : R.color.ui_muted));
+        favoritesTitle.setTextSize(16);
+        favoritesTitle.setLetterSpacing(0.06f);
+        favoritesTitle.setIncludeFontPadding(false);
         favoritesTitle.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         LinearLayout.LayoutParams headingSize = new LinearLayout.LayoutParams(-1, -2);
-        headingSize.setMargins(0, 0, 0, dp(10));
+        headingSize.setMargins(0, 0, 0, dp(8));
         landing.addView(favoritesTitle, headingSize);
         if (favorites.isEmpty()) {
             TextView empty = new TextView(this);
             empty.setText(R.string.favorites_empty);
-            empty.setTextColor(Color.LTGRAY);
-            empty.setTextSize(14);
+            empty.setTextColor(getResources().getColor(tvMode ? R.color.tv_muted : R.color.ui_muted));
+            empty.setTextSize(16);
             landing.addView(empty, new LinearLayout.LayoutParams(-1, -2));
         } else {
             int shownFavorites = Math.min(favorites.size(), MAX_FAVORITES);
             for (int i = 0; i < shownFavorites; i += 2) {
                 LinearLayout row = new LinearLayout(this);
-                LinearLayout.LayoutParams rowSize = new LinearLayout.LayoutParams(-1, dp(72));
+                LinearLayout.LayoutParams rowSize = new LinearLayout.LayoutParams(-1, dp(compact ? 56 : 64));
                 rowSize.setMargins(-dp(4), 0, -dp(4), dp(4));
                 landing.addView(row, rowSize);
                 for (int slot = i; slot < Math.min(i + 2, shownFavorites); slot++) {
                     String url = favorites.get(slot);
                     Button item = new Button(this);
                     String host = Uri.parse(url).getHost();
-                    item.setText(host == null ? url : host);
-                    item.setGravity(Gravity.CENTER);
-                    item.setTextColor(Color.WHITE);
+                    String displayHost = host == null ? url : host;
+                    String prefix = tvMode ? String.format(Locale.ROOT, "%02d   ", slot + 1) : "";
+                    SpannableString destination = new SpannableString(prefix + displayHost);
+                    android.content.res.ColorStateList secondary = getResources()
+                            .getColorStateList(R.color.tv_button_secondary, getTheme());
+                    if (!prefix.isEmpty()) {
+                        destination.setSpan(new TextAppearanceSpan("sans-serif", Typeface.NORMAL,
+                                -1, secondary, null), 0, prefix.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    }
+                    int hostStart = prefix.length();
+                    if (displayHost.startsWith("www.")) {
+                        destination.setSpan(new TextAppearanceSpan(null, Typeface.NORMAL, -1,
+                                secondary, null), hostStart, hostStart + 4,
+                                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        hostStart += 4;
+                    }
+                    int suffix = displayHost.indexOf('.', hostStart - prefix.length());
+                    if (host != null && suffix >= 0) {
+                        destination.setSpan(new TextAppearanceSpan(null, Typeface.NORMAL, -1,
+                                secondary, null), prefix.length() + suffix, destination.length(),
+                                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    }
+                    item.setText(destination);
+                    item.setContentDescription(displayHost);
+                    item.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
+                    item.setTextColor(getResources().getColorStateList(R.color.tv_button_text, getTheme()));
                     item.setAllCaps(false);
-                    item.setTextSize(14);
+                    item.setTextSize(tvMode ? 18 : 16);
+                    item.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+                    item.setSingleLine(true);
+                    item.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                    item.setPadding(dp(tvMode ? 18 : 12), 0, dp(tvMode ? 18 : 12), 0);
+                    item.setStateListAnimator(null);
                     item.setBackgroundResource(R.drawable.tv_button);
                     LinearLayout.LayoutParams itemSize = new LinearLayout.LayoutParams(0, -1, 1);
                     itemSize.setMargins(dp(4), dp(4), dp(4), dp(4));
@@ -1459,15 +1514,48 @@ public class MainActivity extends Activity {
         menuPanel.setOnClickListener(view -> closeMenu());
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
-        list.setPadding(dp(16), dp(16), dp(16), dp(16));
-        list.setBackgroundResource(R.drawable.tv_address);
+        list.setPadding(dp(12), dp(12), dp(12), dp(12));
+        list.setBackgroundResource(R.drawable.menu_panel);
         list.setClickable(true);
         FrameLayout.LayoutParams panelSize = new FrameLayout.LayoutParams(
-                Math.min(dp(620), root.getWidth() - dp(32)), -2, Gravity.CENTER);
+                Math.min(dp(600), root.getWidth() - dp(48)), -2, Gravity.CENTER);
         menuPanel.addView(list, panelSize);
         for (int i = 0; i < entries.length; i++) {
             final int index = i;
-            Button item = button(entries[i], list);
+            if (i > 0) {
+                View divider = new View(this);
+                divider.setBackgroundColor(getResources().getColor(R.color.tv_divider));
+                LinearLayout.LayoutParams dividerSize = new LinearLayout.LayoutParams(-1, dp(1));
+                dividerSize.setMargins(dp(20), 0, dp(20), 0);
+                list.addView(divider, dividerSize);
+            }
+            LinearLayout item = new LinearLayout(this);
+            item.setGravity(Gravity.CENTER_VERTICAL);
+            item.setPadding(dp(20), 0, dp(20), 0);
+            item.setBackgroundResource(R.drawable.tv_button);
+            item.setFocusable(true);
+            item.setFocusableInTouchMode(true);
+            item.setClickable(true);
+            item.setStateListAnimator(null);
+            list.addView(item, new LinearLayout.LayoutParams(-1, dp(48)));
+            int separator = entries[i].lastIndexOf(": ");
+            TextView label = new TextView(this);
+            label.setText(separator < 0 ? entries[i] : entries[i].substring(0, separator));
+            label.setTextSize(18);
+            label.setDuplicateParentStateEnabled(true);
+            label.setTextColor(getResources().getColorStateList(R.color.tv_button_text, getTheme()));
+            item.addView(label, new LinearLayout.LayoutParams(0, -2, 1));
+            if (separator >= 0) {
+                TextView value = new TextView(this);
+                value.setText(entries[i].substring(separator + 2));
+                value.setTextSize(16);
+                value.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+                value.setPadding(dp(16), 0, 0, 0);
+                value.setDuplicateParentStateEnabled(true);
+                value.setTextColor(getResources().getColorStateList(R.color.tv_button_value, getTheme()));
+                item.addView(value, new LinearLayout.LayoutParams(-2, -2));
+            }
+            item.setContentDescription(entries[i]);
             item.setOnClickListener(view -> {
                 closeMenu();
                 choice.select(index);
