@@ -1,0 +1,4 @@
+69d9c0bc6d17e6f880f7ffca2e9d9bf112ccc361730ddffa6fb999753cc5fa5e  WebMini-arm64-v8a.apk
+94b4d6eaba1c63ffa02623f9ea7961953e1b7167cc010c5d5576d735b02c2b7e  WebMini-armeabi-v7a.apk
+b4bfabbf970b0e22663893f2e0739209815647a1a8353ca4fe03e12bd832ab1a  WebMini-universal.apk
+533a87c04ac3be8e7d88af6a822d8c2e6ae8dce2e96773d5191bb170a2d0ee08  WebMini-x86_64.apk

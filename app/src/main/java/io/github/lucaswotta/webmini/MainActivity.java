@@ -116,6 +116,8 @@ public class MainActivity extends Activity {
     private final ArrayList<String> favorites = new ArrayList<>();
     private boolean homePage;
     private boolean tvMode;
+    // D-pad owns the toolbar while this is set; the pointer takes over again on exit.
+    private boolean toolbarFocus;
     private boolean cursorShown = true;
     private long edgeScrollStarted;
     private int edgeScrollDirection;
@@ -361,6 +363,8 @@ public class MainActivity extends Activity {
             webView = null;
         }
         homePage = true;
+        toolbarFocus = false;
+        if (address.isFocused()) address.clearFocus();
         currentUrl = HOME;
         address.setText("");
         favoriteButton.setText("☆");
@@ -655,14 +659,33 @@ public class MainActivity extends Activity {
         if (favorites.contains(currentUrl)) {
             favorites.remove(currentUrl);
         } else if (favorites.size() >= MAX_FAVORITES) {
-            Toast.makeText(this, getString(R.string.favorites_full, MAX_FAVORITES),
-                    Toast.LENGTH_LONG).show();
+            // The grid has no free slot, so the page enters by replacing a stored favorite.
+            chooseFavorite(getString(R.string.favorites_full, MAX_FAVORITES), which -> {
+                favorites.set(which, currentUrl);
+                persistFavorites();
+                updateFavoriteButton();
+            });
             return;
         } else {
             favorites.add(0, currentUrl);
         }
         persistFavorites();
         updateFavoriteButton();
+    }
+
+    private void chooseFavorite(String title, Choice choice) {
+        String[] entries = favorites.toArray(new String[0]);
+        showChoices(title, entries, choice);
+    }
+
+    private void removeFavorite() {
+        chooseFavorite(getString(R.string.menu_remove_favorite), which -> {
+            favorites.remove(which);
+            persistFavorites();
+            if (homePage) showHomePage();
+            else updateFavoriteButton();
+            Toast.makeText(this, R.string.favorite_removed, Toast.LENGTH_SHORT).show();
+        });
     }
 
     private void updateFavoriteButton() {
@@ -960,7 +983,10 @@ public class MainActivity extends Activity {
     public boolean onGenericMotionEvent(MotionEvent event) {
         if (tvMode && event.getAction() == MotionEvent.ACTION_MOVE
                 && (event.getSource() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) {
-            if (focusedEditor() != null || keyboardAcceptingText()) {
+            // Focus drives the home screen, menus and the toolbar, so the stick only
+            // moves the pointer over the web page.
+            if (homePage || menuPanel != null || toolbarFocus
+                    || focusedEditor() != null || keyboardAcceptingText()) {
                 analogX = 0;
                 analogY = 0;
                 return true;
@@ -997,11 +1023,18 @@ public class MainActivity extends Activity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if (tvMode && event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_B) {
-            if (event.getAction() == KeyEvent.ACTION_UP) navigateBack();
+        int key = event.getKeyCode();
+        EditText editor = tvMode ? focusedEditor() : null;
+        if (tvMode && key == KeyEvent.KEYCODE_BUTTON_B) {
+            if (event.getAction() == KeyEvent.ACTION_UP) {
+                // Leaving a half-typed address or the toolbar first keeps Back from
+                // navigating away while the user is still editing.
+                if (editor != null) leaveEditor(editor);
+                else if (toolbarFocus && menuPanel == null) leaveToolbar();
+                else navigateBack();
+            }
             return true;
         }
-        EditText editor = tvMode ? focusedEditor() : null;
         if (tvMode && editor == null && keyboardAcceptingText()) {
             return super.dispatchKeyEvent(event);
         }
@@ -1010,22 +1043,56 @@ public class MainActivity extends Activity {
             digitalY = 0;
             if (cursorView != null) cursorView.removeCallbacks(cursorTick);
             cursorTickScheduled = false;
-            int key = event.getKeyCode();
             if (key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT) {
-                if (event.getAction() == KeyEvent.ACTION_DOWN) moveTextCaret(editor,
-                        key == KeyEvent.KEYCODE_DPAD_LEFT ? -1 : 1);
+                int direction = key == KeyEvent.KEYCODE_DPAD_LEFT ? -1 : 1;
+                if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                    if (moveTextCaret(editor, direction)) return true;
+                    // At the text edge the key hands focus to the neighbouring button.
+                    return super.dispatchKeyEvent(event);
+                }
+                return true;
+            }
+            if (!homePage && key == KeyEvent.KEYCODE_DPAD_DOWN
+                    && event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                leaveEditor(editor);
+                return true;
+            }
+            if (!keyboardAcceptingText() && event.getAction() == KeyEvent.ACTION_DOWN
+                    && event.getRepeatCount() == 0
+                    && (key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER
+                            || key == KeyEvent.KEYCODE_BUTTON_A)) {
+                showSoftKeyboard(editor);
+                return true;
+            }
+            return super.dispatchKeyEvent(event);
+        }
+        if (tvMode && toolbarFocus && menuPanel == null && !homePage) {
+            if (key == KeyEvent.KEYCODE_DPAD_UP
+                    || (key == KeyEvent.KEYCODE_DPAD_DOWN
+                            && event.getAction() == KeyEvent.ACTION_DOWN)) {
+                if (key == KeyEvent.KEYCODE_DPAD_DOWN) leaveToolbar();
                 return true;
             }
             return super.dispatchKeyEvent(event);
         }
         // The home screen has no page to point at, so the D-pad moves focus between its buttons.
         if (tvMode && menuPanel == null && !homePage) {
-            int key = event.getKeyCode();
             if (key == KeyEvent.KEYCODE_DPAD_UP || key == KeyEvent.KEYCODE_DPAD_DOWN
                     || key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT
                     || key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER
                     || key == KeyEvent.KEYCODE_BUTTON_A) {
                 if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                    if (key == KeyEvent.KEYCODE_DPAD_UP && event.getRepeatCount() == 0
+                            && fullscreenView == null
+                            && (webView == null || webView.getScrollY() == 0)) {
+                        // Nothing scrolls at the top of the page, so the key reaches the
+                        // address bar instead of the pointer.
+                        toolbarFocus = true;
+                        address.requestFocus();
+                        if (cursorView != null) cursorView.removeCallbacks(hideCursor);
+                        hideCursor.run();
+                        return true;
+                    }
                     revealCursor();
                     if (key == KeyEvent.KEYCODE_DPAD_UP) digitalY = -1;
                     if (key == KeyEvent.KEYCODE_DPAD_DOWN) digitalY = 1;
@@ -1065,17 +1132,47 @@ public class MainActivity extends Activity {
         return inputMethod != null && inputMethod.isAcceptingText();
     }
 
-    private void moveTextCaret(EditText editor, int direction) {
+    private void showSoftKeyboard(EditText editor) {
+        InputMethodManager inputMethod = (InputMethodManager)
+                getSystemService(INPUT_METHOD_SERVICE);
+        if (inputMethod != null) {
+            inputMethod.showSoftInput(editor, InputMethodManager.SHOW_IMPLICIT);
+        }
+    }
+
+    private void leaveEditor(EditText editor) {
+        toolbarFocus = false;
+        editor.clearFocus();
+        InputMethodManager inputMethod = (InputMethodManager)
+                getSystemService(INPUT_METHOD_SERVICE);
+        if (inputMethod != null) {
+            inputMethod.hideSoftInputFromWindow(editor.getWindowToken(), 0);
+        }
+        if (!homePage) revealCursor();
+    }
+
+    private void leaveToolbar() {
+        toolbarFocus = false;
+        View focused = getCurrentFocus();
+        if (focused != null) focused.clearFocus();
+        revealCursor();
+    }
+
+    // Returns false when the caret is already at the edge, so the key can move focus instead.
+    private boolean moveTextCaret(EditText editor, int direction) {
         int start = editor.getSelectionStart();
         int end = editor.getSelectionEnd();
-        if (start < 0 || end < 0) return;
+        if (start < 0 || end < 0) return false;
         if (start != end) {
             editor.setSelection(direction < 0 ? Math.min(start, end) : Math.max(start, end));
-            return;
+            return true;
         }
-        if ((direction < 0 && start == 0) || (direction > 0 && start == editor.length())) return;
+        if ((direction < 0 && start == 0) || (direction > 0 && start == editor.length())) {
+            return false;
+        }
         int next = Character.offsetByCodePoints(editor.getText(), start, direction);
         editor.setSelection(next);
+        return true;
     }
 
     private int adBlockStateLabel() {
@@ -1091,10 +1188,17 @@ public class MainActivity extends Activity {
         String popupLabel = getString(popupsBlocked
                 ? R.string.popup_block_enabled : R.string.popup_block_disabled);
         String adBlockLabel = getString(adBlockStateLabel());
-        String[] entries = {getString(R.string.menu_forward), popupLabel, adBlockLabel,
-                getString(R.string.menu_search_engine, SEARCH_ENGINES[searchEngineIndex()][0]),
-                getString(R.string.menu_clear_data), getString(R.string.menu_about)};
-        showChoices(entries, which -> {
+        boolean canRemoveFavorite = !favorites.isEmpty();
+        ArrayList<String> entries = new ArrayList<>();
+        entries.add(getString(R.string.menu_forward));
+        entries.add(popupLabel);
+        entries.add(adBlockLabel);
+        entries.add(getString(R.string.menu_search_engine, SEARCH_ENGINES[searchEngineIndex()][0]));
+        if (canRemoveFavorite) entries.add(getString(R.string.menu_remove_favorite));
+        entries.add(getString(R.string.menu_clear_data));
+        entries.add(getString(R.string.menu_about));
+        final int clearDataAt = canRemoveFavorite ? 5 : 4;
+        showChoices(entries.toArray(new String[0]), which -> {
             if (which == 0 && webView != null && webView.canGoForward()) webView.goForward();
             if (which == 1) {
                 popupsBlocked = !popupsBlocked;
@@ -1104,8 +1208,9 @@ public class MainActivity extends Activity {
             }
             if (which == 2) adBlockMenu();
             if (which == 3) chooseSearchEngine();
-            if (which == 4) clearDataMenu();
-            if (which == 5) {
+            if (canRemoveFavorite && which == 4) removeFavorite();
+            if (which == clearDataAt) clearDataMenu();
+            if (which == clearDataAt + 1) {
                 navigateTo(ABOUT);
             }
         });
@@ -1529,9 +1634,15 @@ public class MainActivity extends Activity {
     }
 
     private void showChoices(String[] entries, Choice choice) {
+        showChoices(null, entries, choice);
+    }
+
+    private void showChoices(String title, String[] entries, Choice choice) {
         if (!tvMode) {
-            new AlertDialog.Builder(this)
-                    .setItems(entries, (dialog, which) -> choice.select(which)).show();
+            AlertDialog.Builder dialog = new AlertDialog.Builder(this)
+                    .setItems(entries, (panel, which) -> choice.select(which));
+            if (title != null) dialog.setTitle(title);
+            dialog.show();
             return;
         }
         if (menuPanel != null) return;
@@ -1543,9 +1654,28 @@ public class MainActivity extends Activity {
         list.setPadding(dp(12), dp(12), dp(12), dp(12));
         list.setBackgroundResource(R.drawable.menu_panel);
         list.setClickable(true);
+        if (title != null) {
+            TextView heading = new TextView(this);
+            heading.setText(title);
+            heading.setTextColor(getResources().getColor(R.color.tv_muted));
+            heading.setTextSize(16);
+            heading.setPadding(dp(20), dp(4), dp(20), dp(8));
+            LinearLayout.LayoutParams headingSize = new LinearLayout.LayoutParams(-1, -2);
+            headingSize.bottomMargin = dp(8);
+            list.addView(heading, headingSize);
+        }
         FrameLayout.LayoutParams panelSize = new FrameLayout.LayoutParams(
                 Math.min(dp(600), root.getWidth() - dp(48)), -2, Gravity.CENTER);
-        menuPanel.addView(list, panelSize);
+        View panelContent = list;
+        // Eight rows plus padding already pass a 720p TV, so a longer list scrolls.
+        if (root.getHeight() > 0 && entries.length + (title == null ? 0 : 1) > 7) {
+            ScrollView scroll = new ScrollView(this);
+            scroll.addView(list);
+            panelContent = scroll;
+            panelSize.height = root.getHeight() - dp(80);
+        }
+        menuPanel.addView(panelContent, panelSize);
+        View firstItem = null;
         for (int i = 0; i < entries.length; i++) {
             final int index = i;
             if (i > 0) {
@@ -1586,11 +1716,12 @@ public class MainActivity extends Activity {
                 closeMenu();
                 choice.select(index);
             });
+            if (firstItem == null) firstItem = item;
         }
         root.addView(menuPanel, new FrameLayout.LayoutParams(-1, -1));
         cursorView.bringToFront();
         // The D-pad moves focus inside the menu; start on the first entry.
-        if (tvMode && list.getChildCount() > 0) list.getChildAt(0).requestFocus();
+        if (tvMode && firstItem != null) firstItem.requestFocus();
     }
 
     private void closeMenu() {
@@ -1620,6 +1751,7 @@ public class MainActivity extends Activity {
             url = "https://" + input;
         }
         navigateTo(url);
+        toolbarFocus = false;
         address.clearFocus();
         if (tvMode && webView != null) webView.requestFocus();
     }

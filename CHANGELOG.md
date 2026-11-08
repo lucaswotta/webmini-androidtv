@@ -24,8 +24,8 @@ Redesign, search and filtering options, and a round of fixes from an independent
 
 ### Changed
 
-- Up to 4 favorites are shown to fit the screen without scrolling; favorites beyond 4 stay stored.
-- The D-pad moves focus on the home screen and inside menus, and moves the pointer on pages.
+- Up to 4 favorites are shown to fit the screen without scrolling; favorites beyond 4 stay stored. With the grid full, the star lists the stored favorites so one can be replaced, and "Remove favorite" in the options menu deletes one.
+- The D-pad moves focus on the home screen, inside menus and in the toolbar, and moves the pointer on pages; pressing up at the top of a page focuses the address bar and down leaves it. The analog stick moves the pointer only over pages.
 - Each filter list has its own age; a download is kept in memory when storage is full.
 - Dialogs use the app theme, and focus stays on the page instead of the Home button.
 - CI runs unit tests and lint, pins Rust 1.99.1, cargo-ndk 4.1.2, each action by commit SHA and the Gradle wrapper checksum. A `v*` tag can publish signed APKs and `SHA256SUMS.txt` when `WEBMINI_CI_RELEASE` is set.
