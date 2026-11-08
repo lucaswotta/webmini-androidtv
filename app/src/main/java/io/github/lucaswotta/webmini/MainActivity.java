@@ -885,6 +885,14 @@ public class MainActivity extends Activity {
                             .showSoftInput(address, InputMethodManager.SHOW_IMPLICIT);
                 } else showHomePage();
             });
+            // The failed page must not show through the panel (Chromium's error icon).
+            if (menuPanel != null) {
+                android.graphics.drawable.LayerDrawable cover =
+                        new android.graphics.drawable.LayerDrawable(new android.graphics.drawable.Drawable[]{
+                                new android.graphics.drawable.ColorDrawable(Color.BLACK)});
+                cover.setLayerInset(0, 0, content.getTop(), 0, 0);
+                menuPanel.setBackground(cover);
+            }
         });
     }
 
@@ -1434,7 +1442,7 @@ public class MainActivity extends Activity {
 
     private void showConfirmation(String title, String message, String acceptLabel,
                                   String cancelLabel, Runnable onAccept) {
-        new AlertDialog.Builder(this)
+        (tvMode ? new AlertDialog.Builder(this, R.style.TvDialog) : new AlertDialog.Builder(this))
                 .setTitle(title)
                 .setMessage(message)
                 .setPositiveButton(acceptLabel, (dialog, which) -> onAccept.run())
