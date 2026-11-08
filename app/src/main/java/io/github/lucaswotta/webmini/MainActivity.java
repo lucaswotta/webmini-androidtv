@@ -521,6 +521,13 @@ public class MainActivity extends Activity {
         }
         content.addView(scroll, new FrameLayout.LayoutParams(-1, -1));
         updateFavoriteButton();
+        if (tvMode) {
+            // Hold focus on the container so no button looks selected and the
+            // keyboard stays closed until the user moves to the search field.
+            scroll.setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS);
+            scroll.setFocusable(true);
+            scroll.post(() -> { if (homePage) scroll.requestFocus(); });
+        }
     }
 
     private int searchEngineIndex() {

@@ -9,6 +9,8 @@ permissions:
 
 jobs:
   release:
+    # Releases are published locally unless the repository variable is set.
+    if: ${{ vars.WEBMINI_CI_RELEASE == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
