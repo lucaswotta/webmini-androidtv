@@ -1,15 +1,42 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (2026-11-07)
+
+Redesign, search and filtering options, and a round of fixes from an independent code review.
 
 ### Added
 
-- Clear cache entry in the options menu; the page cache is also erased when the app closes.
-- Obtainium badge and Downloader code at the top of the README.
+- New identity: the W mark with an amber stem, warm black and ivory palette, amber focus, numbered favorites and a menu that shows each option's state. Launcher icon, TV banner and all interface graphics are vectors; app resources dropped from 67.7 KB to 27.4 KB.
+- Search engine choice (Google, DuckDuckGo, Bing, Brave) and voice search through the speech recognizer installed on the device.
+- Regional filter lists for Portuguese and Spanish, chosen automatically or in Menu > Block ads and trackers > Regional list.
+- "Filter on this site" toggle in the same menu, lasting for the session.
+- Menu states for the filter: loading lists and partial lists.
+- Clear data menu: cache, cookies and site data, or all of them. The page cache is also erased when the app is closed normally.
+- Page error screen with reload (GET only), edit address and home.
+- Unit tests for the navigation policy and the filter list rules, run by CI.
+- `docs/testing.md` with the manual checklist, device matrix and memory measurements.
+
+### Security
+
+- Forms sent over HTTP are blocked: WebView reports no POST navigation to a callback the user can answer.
+- HTTP pages opened by GET are confirmed on Android 6.0 too, and a confirmation no longer carries over to the next navigation.
+- Only the newest Activity can replace or clear the native filter engine, and the swap runs under a lock; a failed list update keeps the engine that was running.
 
 ### Changed
 
-- Favorites are limited to 4, the most that fit the home screen at 720p without scrolling. Existing favorites beyond 4 are hidden on the next launch and dropped when favorites are next saved.
+- Up to 4 favorites are shown to fit the screen without scrolling; favorites beyond 4 stay stored.
+- The D-pad moves focus on the home screen and inside menus, and moves the pointer on pages.
+- Each filter list has its own age; a download is kept in memory when storage is full.
+- Dialogs use the app theme, and focus stays on the page instead of the Home button.
+- CI runs unit tests and lint, pins Rust 1.99.1, cargo-ndk 4.1.2, each action by commit SHA and the Gradle wrapper checksum. A `v*` tag can publish signed APKs and `SHA256SUMS.txt` when `WEBMINI_CI_RELEASE` is set.
+
+### Fixed
+
+- Clearing the cache from the home screen did nothing because no WebView existed.
+- "Data cleared" appeared before the cookies were removed.
+- WebView timers stayed paused after reopening the app without killing the process.
+- A renderer crash overwrote the current URL with `about:blank`.
+- A regional list downloaded for one language could be saved as another.
 
 ## 0.2.0 (2026-10-24)
 

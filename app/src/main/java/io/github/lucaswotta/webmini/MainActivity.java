@@ -6,6 +6,8 @@ import android.app.AlertDialog;
 import android.app.DownloadManager;
 import android.content.Context;
 import android.content.Intent;
+import android.speech.RecognizerIntent;
+import android.webkit.WebStorage;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
@@ -26,6 +28,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
@@ -35,6 +38,7 @@ import android.webkit.ServiceWorkerClient;
 import android.webkit.ServiceWorkerController;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -43,6 +47,9 @@ import android.webkit.CookieManager;
 import android.webkit.URLUtil;
 import android.graphics.Typeface;
 import android.text.InputType;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.TextAppearanceSpan;
 import android.widget.ScrollView;
 import org.json.JSONArray;
 
@@ -75,8 +82,16 @@ public class MainActivity extends Activity {
     private static final int MAX_FAVORITES = 4;
     private static final String EASYLIST_URL = "https://easylist.to/easylist/easylist.txt";
     private static final String EASYPRIVACY_URL = "https://easylist.to/easylist/easyprivacy.txt";
-    private static final String[] FILTER_LIST_FILES = {"easylist.txt", "easyprivacy.txt"};
-    private static final long FILTER_LIST_MAX_AGE = 7L * 24 * 60 * 60 * 1000;
+    private static final String[] FILTER_LIST_FILES =
+            {"easylist.txt", "easyprivacy.txt", "easylist-regional.txt"};
+    private static final int REGIONAL_LIST = 2;
+    private static final int VOICE_REQUEST = 7;
+    private static final String[][] SEARCH_ENGINES = {
+            {"Google", "https://www.google.com/search?q="},
+            {"DuckDuckGo", "https://duckduckgo.com/?q="},
+            {"Bing", "https://www.bing.com/search?q="},
+            {"Brave", "https://search.brave.com/search?q="},
+    };
     private static final int MAX_FILTER_LIST_BYTES = 5 * 1024 * 1024;
     private static final byte[] EMPTY_BODY = new byte[0];
     private static final String[] AD_HOSTS = {
@@ -115,12 +130,12 @@ public class MainActivity extends Activity {
     private WebChromeClient.CustomViewCallback fullscreenCallback;
     private volatile boolean adBlockEnabled;
     private boolean popupsBlocked;
+    private boolean navigationErrorShown;
     private String pendingDownloadUrl;
     private String pendingDownloadUserAgent;
     private String pendingDownloadReferer;
     private String pendingDownloadName;
     private String pendingDownloadMime;
-    private String approvedHttpUrl;
     private float cursorX = -1;
     private float cursorY = -1;
     private float analogX;
@@ -131,6 +146,15 @@ public class MainActivity extends Activity {
     private boolean cursorTickScheduled;
     private volatile String currentUrl = HOME;
     private volatile boolean nativeFiltersReady;
+    // False while the engine was built without EasyList or EasyPrivacy.
+    private volatile boolean nativeFiltersComplete;
+    // The native engine is process-wide; only the newest Activity may replace or clear it.
+    private static final java.util.concurrent.atomic.AtomicInteger ENGINE_OWNER =
+            new java.util.concurrent.atomic.AtomicInteger();
+    private static final Object ENGINE_LOCK = new Object();
+    private int engineOwner;
+    private final java.util.Set<String> exemptOrigins =
+            java.util.Collections.synchronizedSet(new java.util.HashSet<>());
     private final ExecutorService adBlockExecutor = Executors.newSingleThreadExecutor();
     private boolean adBlockInitializationRunning;
     private boolean adBlockReloadRequested;
@@ -160,6 +184,7 @@ public class MainActivity extends Activity {
         tvMode = getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
         if (tvMode) setTheme(R.style.TvTheme);
         super.onCreate(savedInstanceState);
+        engineOwner = ENGINE_OWNER.incrementAndGet();
         adBlockEnabled = getPreferences(MODE_PRIVATE).getBoolean("adBlockEnabled", true);
         popupsBlocked = getPreferences(MODE_PRIVATE).getBoolean("popupsBlocked", true);
         loadFavorites();
@@ -195,10 +220,9 @@ public class MainActivity extends Activity {
 
         LinearLayout toolbar = new LinearLayout(this);
         toolbar.setGravity(Gravity.CENTER);
-        if (tvMode) {
-            toolbar.setBackgroundColor(Color.BLACK);
-            toolbar.setPadding(0, 0, 0, 0);
-        }
+        toolbar.setBackgroundColor(getResources().getColor(
+                tvMode ? R.color.tv_surface : R.color.ui_background));
+        toolbar.setPadding(dp(tvMode ? 16 : 4), dp(4), dp(tvMode ? 16 : 4), dp(4));
         page.addView(toolbar, new LinearLayout.LayoutParams(-1, -2));
         Button home = button("⌂", toolbar);
         home.setContentDescription(getString(R.string.nav_home));
@@ -213,13 +237,11 @@ public class MainActivity extends Activity {
         address.setSelectAllOnFocus(true);
         address.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
         address.setImeOptions(EditorInfo.IME_ACTION_GO);
-        if (tvMode) {
-            address.setBackgroundResource(R.drawable.tv_address);
-            address.setTextColor(Color.rgb(245, 244, 239));
-            address.setHintTextColor(Color.rgb(170, 170, 170));
-            address.setTextSize(18);
-            address.setPadding(dp(18), 0, dp(18), 0);
-        }
+        address.setBackgroundResource(R.drawable.tv_address);
+        address.setTextColor(getResources().getColor(tvMode ? R.color.tv_text : R.color.ui_text));
+        address.setHintTextColor(getResources().getColor(tvMode ? R.color.tv_muted : R.color.ui_muted));
+        address.setTextSize(tvMode ? 17 : 16);
+        address.setPadding(dp(16), 0, dp(16), 0);
         address.setOnEditorActionListener((view, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_GO
                     || (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
@@ -233,10 +255,11 @@ public class MainActivity extends Activity {
         back.setOnClickListener(view -> navigateBack());
         FrameLayout addressBox = new FrameLayout(this);
         toolbar.addView(addressBox, new LinearLayout.LayoutParams(
-                0, tvMode ? dp(52) : -2, 1));
-        addressBox.addView(address, new FrameLayout.LayoutParams(-1, tvMode ? -1 : -2));
+                0, dp(tvMode ? 48 : 44), 1));
+        addressBox.addView(address, new FrameLayout.LayoutParams(-1, -1));
         loadingLine = new View(this);
-        loadingLine.setBackgroundColor(Color.rgb(56, 189, 248));
+        loadingLine.setBackgroundColor(getResources().getColor(
+                tvMode ? R.color.brand_amber : R.color.ui_accent));
         loadingLine.setVisibility(View.INVISIBLE);
         loadingLine.setPivotX(0);
         loadingLine.setScaleX(0);
@@ -253,7 +276,7 @@ public class MainActivity extends Activity {
 
         if (tvMode) {
             View line = new View(this);
-            line.setBackgroundColor(Color.rgb(245, 244, 239));
+            line.setBackgroundColor(getResources().getColor(R.color.tv_border));
             page.addView(line, new LinearLayout.LayoutParams(-1, dp(1)));
         }
         content = new FrameLayout(this);
@@ -267,11 +290,9 @@ public class MainActivity extends Activity {
         if (launchUrl == null || (savedInstanceState != null
                 && savedInstanceState.getBoolean("homePage"))) {
             showHomePage();
-        } else if (needsHttpWarning(launchUrl)) {
+        } else {
             showHomePage();
             navigateTo(launchUrl);
-        } else {
-            createWebView(currentUrl);
         }
         if (Build.VERSION.SDK_INT >= 33) {
             getOnBackInvokedDispatcher().registerOnBackInvokedCallback(0, this::navigateBack);
@@ -287,18 +308,25 @@ public class MainActivity extends Activity {
         button.setMinWidth(0);
         button.setMinimumWidth(0);
         LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(
-                parent.getOrientation() == LinearLayout.VERTICAL ? -1 : tvMode ? dp(52) : -2,
-                tvMode ? dp(52) : -2);
-        if (tvMode) {
-            button.setAllCaps(false);
-            button.setTextSize(parent.getOrientation() == LinearLayout.VERTICAL ? 18 : 24);
-            button.setTextColor(getResources().getColorStateList(R.color.tv_button_text));
-            button.setBackgroundResource(R.drawable.tv_button);
-            button.setPadding(parent.getOrientation() == LinearLayout.VERTICAL ? dp(18) : 0,
-                    0, parent.getOrientation() == LinearLayout.VERTICAL ? dp(18) : 0, 0);
-            if (parent.getOrientation() == LinearLayout.VERTICAL) {
-                size.setMargins(0, dp(4), 0, dp(4));
-            }
+                dp(tvMode ? 48 : 40), dp(tvMode ? 48 : 44));
+        button.setAllCaps(false);
+        button.setTextSize(24);
+        button.setTextColor(getResources().getColorStateList(R.color.tv_button_text, getTheme()));
+        button.setBackgroundResource(R.drawable.tv_button);
+        button.setStateListAnimator(null);
+        button.setPadding(0, 0, 0, 0);
+        int icon = 0;
+        switch (label) {
+            case "⌂": icon = R.drawable.ic_home; break;
+            case "←": icon = R.drawable.ic_back; break;
+            case "⟳": icon = R.drawable.ic_reload; break;
+            case "⋮": icon = R.drawable.ic_menu; break;
+        }
+        if (icon != 0) {
+            button.setText("");
+            button.setCompoundDrawablesWithIntrinsicBounds(icon, 0, 0, 0);
+            int inset = (tvMode ? 48 : 40) / 2 - 12;
+            button.setPadding(dp(inset), 0, dp(inset), 0);
         }
         parent.addView(button, size);
         return button;
@@ -339,93 +367,150 @@ public class MainActivity extends Activity {
         favoriteButton.setEnabled(false);
         content.removeAllViews();
 
+        boolean compact = tvMode && getResources().getDisplayMetrics().heightPixels
+                / getResources().getDisplayMetrics().density < 440;
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
-        scroll.setBackgroundColor(tvMode ? Color.BLACK : Color.rgb(20, 20, 20));
+        scroll.setBackgroundColor(getResources().getColor(
+                tvMode ? android.R.color.black : R.color.ui_background));
         LinearLayout landing = new LinearLayout(this);
         landing.setOrientation(LinearLayout.VERTICAL);
-        landing.setGravity(Gravity.CENTER_HORIZONTAL);
-        landing.setPadding(dp(20), dp(28), dp(20), dp(24));
+        landing.setGravity(Gravity.CENTER);
+        landing.setPadding(dp(tvMode ? 28 : 20), dp(compact ? 8 : 24),
+                dp(tvMode ? 28 : 20), dp(compact ? 8 : 20));
         scroll.addView(landing, new ScrollView.LayoutParams(-1, -2));
 
+        LinearLayout brand = new LinearLayout(this);
+        brand.setGravity(Gravity.CENTER);
+        landing.addView(brand, new LinearLayout.LayoutParams(-1, dp(compact ? 52 : 80)));
         ImageView logo = new ImageView(this);
         logo.setImageResource(R.drawable.ic_logo);
         logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        LinearLayout.LayoutParams logoSize = new LinearLayout.LayoutParams(dp(92), dp(92));
-        logoSize.bottomMargin = dp(8);
-        landing.addView(logo, logoSize);
+        int markSize = compact ? 52 : 80;
+        LinearLayout.LayoutParams logoSize = new LinearLayout.LayoutParams(dp(markSize), dp(markSize));
+        logoSize.setMarginEnd(dp(16));
+        brand.addView(logo, logoSize);
 
         TextView title = new TextView(this);
         title.setText(R.string.app_name);
-        title.setTextColor(Color.WHITE);
-        title.setTextSize(26);
-        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        title.setGravity(Gravity.CENTER);
-        landing.addView(title, new LinearLayout.LayoutParams(-1, -2));
+        title.setTextColor(getResources().getColor(tvMode ? R.color.tv_text : R.color.ui_text));
+        title.setTextSize(compact ? 30 : 40);
+        title.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD));
+        title.setLetterSpacing(0.035f);
+        title.setIncludeFontPadding(false);
+        brand.addView(title, new LinearLayout.LayoutParams(-2, -2));
 
         LinearLayout searchRow = new LinearLayout(this);
         searchRow.setGravity(Gravity.CENTER_VERTICAL);
-        searchRow.setBackgroundResource(tvMode ? R.drawable.tv_address : R.drawable.tv_address);
-        LinearLayout.LayoutParams searchRowSize = new LinearLayout.LayoutParams(-1, dp(52));
-        searchRowSize.setMargins(0, dp(22), 0, dp(24));
+        LinearLayout.LayoutParams searchRowSize = new LinearLayout.LayoutParams(-1, dp(compact ? 56 : 64));
+        searchRowSize.setMargins(0, dp(compact ? 8 : 20), 0, dp(compact ? 8 : 24));
         landing.addView(searchRow, searchRowSize);
         homeSearch = new EditText(this);
         homeSearch.setSingleLine(true);
-        homeSearch.setHint(R.string.home_search_hint);
-        homeSearch.setTextColor(Color.WHITE);
-        homeSearch.setHintTextColor(Color.LTGRAY);
-        homeSearch.setTextSize(16);
-        homeSearch.setPadding(dp(14), 0, dp(8), 0);
-        homeSearch.setBackgroundColor(Color.TRANSPARENT);
+        homeSearch.setHint(getString(R.string.home_search_hint,
+                SEARCH_ENGINES[searchEngineIndex()][0]));
+        homeSearch.setTextColor(getResources().getColor(tvMode ? R.color.tv_text : R.color.ui_text));
+        homeSearch.setHintTextColor(getResources().getColor(tvMode ? R.color.tv_muted : R.color.ui_muted));
+        homeSearch.setTextSize(tvMode ? 20 : 18);
+        homeSearch.setPadding(dp(16), 0, dp(12), 0);
+        homeSearch.setBackgroundResource(R.drawable.home_search);
         homeSearch.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_NORMAL);
         homeSearch.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
         homeSearch.setOnEditorActionListener((view, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_SEARCH
                     || (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
-                searchGoogle(homeSearch.getText().toString());
+                search(homeSearch.getText().toString());
                 return true;
             }
             return false;
         });
         searchRow.addView(homeSearch, new LinearLayout.LayoutParams(0, -1, 1));
+        if (voiceSearchAvailable()) {
+            ImageButton micButton = new ImageButton(this);
+            micButton.setImageResource(R.drawable.ic_mic);
+            micButton.setBackgroundResource(R.drawable.tv_button);
+            micButton.setPadding(dp(14), dp(14), dp(14), dp(14));
+            micButton.setStateListAnimator(null);
+            micButton.setContentDescription(getString(R.string.voice_search));
+            micButton.setOnClickListener(view -> startVoiceSearch());
+            LinearLayout.LayoutParams micSize = new LinearLayout.LayoutParams(dp(52), -1);
+            micSize.setMarginStart(dp(8));
+            searchRow.addView(micButton, micSize);
+        }
         Button searchButton = new Button(this);
-        searchButton.setText("⌕");
-        searchButton.setTextColor(Color.rgb(56, 189, 248));
-        searchButton.setTextSize(23);
-        searchButton.setMinWidth(dp(52));
-        searchButton.setBackgroundColor(Color.TRANSPARENT);
-        searchButton.setOnClickListener(view -> searchGoogle(homeSearch.getText().toString()));
-        searchRow.addView(searchButton, new LinearLayout.LayoutParams(dp(52), -1));
+        searchButton.setText("");
+        searchButton.setContentDescription(getString(R.string.action_search));
+        searchButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_search, 0, 0, 0);
+        searchButton.setPadding(dp(14), 0, dp(14), 0);
+        searchButton.setMinWidth(0);
+        searchButton.setMinimumWidth(0);
+        searchButton.setBackgroundResource(R.drawable.tv_button);
+        searchButton.setStateListAnimator(null);
+        searchButton.setOnClickListener(view -> search(homeSearch.getText().toString()));
+        LinearLayout.LayoutParams submitSize = new LinearLayout.LayoutParams(dp(52), -1);
+        submitSize.setMarginStart(dp(8));
+        searchRow.addView(searchButton, submitSize);
 
         TextView favoritesTitle = new TextView(this);
         favoritesTitle.setText(R.string.favorites_title);
-        favoritesTitle.setTextColor(Color.WHITE);
-        favoritesTitle.setTextSize(18);
+        favoritesTitle.setTextColor(getResources().getColor(tvMode ? R.color.tv_muted : R.color.ui_muted));
+        favoritesTitle.setTextSize(16);
+        favoritesTitle.setLetterSpacing(0.06f);
+        favoritesTitle.setIncludeFontPadding(false);
         favoritesTitle.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         LinearLayout.LayoutParams headingSize = new LinearLayout.LayoutParams(-1, -2);
-        headingSize.setMargins(0, 0, 0, dp(10));
+        headingSize.setMargins(0, 0, 0, dp(8));
         landing.addView(favoritesTitle, headingSize);
         if (favorites.isEmpty()) {
             TextView empty = new TextView(this);
             empty.setText(R.string.favorites_empty);
-            empty.setTextColor(Color.LTGRAY);
-            empty.setTextSize(14);
+            empty.setTextColor(getResources().getColor(tvMode ? R.color.tv_muted : R.color.ui_muted));
+            empty.setTextSize(16);
             landing.addView(empty, new LinearLayout.LayoutParams(-1, -2));
         } else {
-            for (int i = 0; i < favorites.size(); i += 2) {
+            int shownFavorites = Math.min(favorites.size(), MAX_FAVORITES);
+            for (int i = 0; i < shownFavorites; i += 2) {
                 LinearLayout row = new LinearLayout(this);
-                LinearLayout.LayoutParams rowSize = new LinearLayout.LayoutParams(-1, dp(72));
+                LinearLayout.LayoutParams rowSize = new LinearLayout.LayoutParams(-1, dp(compact ? 56 : 64));
                 rowSize.setMargins(-dp(4), 0, -dp(4), dp(4));
                 landing.addView(row, rowSize);
-                for (int slot = i; slot < Math.min(i + 2, favorites.size()); slot++) {
+                for (int slot = i; slot < Math.min(i + 2, shownFavorites); slot++) {
                     String url = favorites.get(slot);
                     Button item = new Button(this);
                     String host = Uri.parse(url).getHost();
-                    item.setText(host == null ? url : host);
-                    item.setGravity(Gravity.CENTER);
-                    item.setTextColor(Color.WHITE);
+                    String displayHost = host == null ? url : host;
+                    String prefix = tvMode ? String.format(Locale.ROOT, "%02d   ", slot + 1) : "";
+                    SpannableString destination = new SpannableString(prefix + displayHost);
+                    android.content.res.ColorStateList secondary = getResources()
+                            .getColorStateList(R.color.tv_button_secondary, getTheme());
+                    if (!prefix.isEmpty()) {
+                        destination.setSpan(new TextAppearanceSpan("sans-serif", Typeface.NORMAL,
+                                -1, secondary, null), 0, prefix.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    }
+                    int hostStart = prefix.length();
+                    if (displayHost.startsWith("www.")) {
+                        destination.setSpan(new TextAppearanceSpan(null, Typeface.NORMAL, -1,
+                                secondary, null), hostStart, hostStart + 4,
+                                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        hostStart += 4;
+                    }
+                    int suffix = displayHost.indexOf('.', hostStart - prefix.length());
+                    if (host != null && suffix >= 0) {
+                        destination.setSpan(new TextAppearanceSpan(null, Typeface.NORMAL, -1,
+                                secondary, null), prefix.length() + suffix, destination.length(),
+                                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    }
+                    item.setText(destination);
+                    item.setContentDescription(displayHost);
+                    item.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
+                    item.setTextColor(getResources().getColorStateList(R.color.tv_button_text, getTheme()));
                     item.setAllCaps(false);
-                    item.setTextSize(14);
+                    item.setTextSize(tvMode ? 18 : 16);
+                    item.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+                    item.setSingleLine(true);
+                    item.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                    item.setPadding(dp(tvMode ? 18 : 12), 0, dp(tvMode ? 18 : 12), 0);
+                    item.setStateListAnimator(null);
                     item.setBackgroundResource(R.drawable.tv_button);
                     LinearLayout.LayoutParams itemSize = new LinearLayout.LayoutParams(0, -1, 1);
                     itemSize.setMargins(dp(4), dp(4), dp(4), dp(4));
@@ -436,25 +521,84 @@ public class MainActivity extends Activity {
         }
         content.addView(scroll, new FrameLayout.LayoutParams(-1, -1));
         updateFavoriteButton();
+        if (tvMode) {
+            // Hold focus on the container so no button looks selected and the
+            // keyboard stays closed until the user moves to the search field.
+            scroll.setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS);
+            scroll.setFocusable(true);
+            scroll.post(() -> { if (homePage) scroll.requestFocus(); });
+        }
     }
 
-    private void searchGoogle(String query) {
-        String trimmed = query.trim();
-        if (trimmed.isEmpty()) return;
+    private int searchEngineIndex() {
+        int saved = getPreferences(MODE_PRIVATE).getInt("searchEngine", 0);
+        return saved >= 0 && saved < SEARCH_ENGINES.length ? saved : 0;
+    }
+
+    private String searchUrl(String query) {
         try {
-            navigateTo("https://www.google.com/search?q=" + URLEncoder.encode(trimmed, "UTF-8"));
+            return SEARCH_ENGINES[searchEngineIndex()][1] + URLEncoder.encode(query, "UTF-8");
         } catch (java.io.UnsupportedEncodingException error) {
             throw new AssertionError(error);
         }
     }
 
+    private void search(String query) {
+        String trimmed = query.trim();
+        if (trimmed.isEmpty()) return;
+        navigateTo(searchUrl(trimmed));
+    }
+
+    private void chooseSearchEngine() {
+        String[] names = new String[SEARCH_ENGINES.length];
+        for (int i = 0; i < names.length; i++) names[i] = SEARCH_ENGINES[i][0];
+        showChoices(names, which -> {
+            getPreferences(MODE_PRIVATE).edit().putInt("searchEngine", which).apply();
+            if (homeSearch != null) {
+                homeSearch.setHint(getString(R.string.home_search_hint, SEARCH_ENGINES[which][0]));
+            }
+        });
+    }
+
+    private boolean voiceSearchAvailable() {
+        return new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .resolveActivity(getPackageManager()) != null;
+    }
+
+    private void startVoiceSearch() {
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        try {
+            startActivityForResult(intent, VOICE_REQUEST);
+        } catch (android.content.ActivityNotFoundException ignored) {
+            Toast.makeText(this, R.string.voice_unavailable, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != VOICE_REQUEST || resultCode != RESULT_OK || data == null) return;
+        ArrayList<String> spoken = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+        if (spoken != null && !spoken.isEmpty()) search(spoken.get(0));
+    }
+
     private void navigateTo(String url) {
         // shouldOverrideUrlLoading does not run for loadUrl, so typed addresses,
         // favorites and links from other apps are checked here.
+        if (NavigationPolicy.decide(url) == NavigationPolicy.Decision.BLOCK) {
+            Toast.makeText(this, R.string.navigation_blocked, Toast.LENGTH_SHORT).show();
+            return;
+        }
         if (needsHttpWarning(url)) {
             confirmHttp(url);
             return;
         }
+        loadConfirmedUrl(url);
+    }
+
+    private void loadConfirmedUrl(String url) {
         if (webView == null) createWebView(url);
         else {
             showLoading();
@@ -463,17 +607,25 @@ public class MainActivity extends Activity {
     }
 
     private boolean needsHttpWarning(String url) {
-        return "http".equalsIgnoreCase(Uri.parse(url).getScheme()) && !url.equals(approvedHttpUrl);
+        return NavigationPolicy.decide(url) == NavigationPolicy.Decision.CONFIRM_HTTP;
     }
 
     private void confirmHttp(String url) {
         showConfirmation(getString(R.string.http_warning_title),
                 getString(R.string.http_warning_message, Uri.parse(url).getHost()),
                 getString(R.string.action_continue), getString(R.string.action_cancel),
-                () -> {
-                    approvedHttpUrl = url;
-                    navigateTo(url);
-                });
+                () -> loadConfirmedUrl(url));
+    }
+
+    private boolean overrideNavigation(String url, boolean mainFrame, String method) {
+        NavigationPolicy.Decision decision = NavigationPolicy.decide(url, mainFrame, method);
+        if (decision == NavigationPolicy.Decision.ALLOW) return false;
+        if (decision == NavigationPolicy.Decision.CONFIRM_HTTP) {
+            confirmHttp(url);
+        } else {
+            Toast.makeText(this, R.string.navigation_blocked, Toast.LENGTH_SHORT).show();
+        }
+        return true;
     }
 
     private void loadFavorites() {
@@ -483,8 +635,7 @@ public class MainActivity extends Activity {
             JSONArray urls = new JSONArray(saved);
             for (int i = 0; i < urls.length(); i++) {
                 String url = urls.optString(i);
-                if (favorites.size() < MAX_FAVORITES
-                        && (url.startsWith("https://") || url.startsWith("http://"))) {
+                if (url.startsWith("https://") || url.startsWith("http://")) {
                     favorites.add(url);
                 }
             }
@@ -542,7 +693,9 @@ public class MainActivity extends Activity {
 
     private void createWebView(String url) {
         content.removeAllViews();
+        navigationErrorShown = false;
         webView = new WebView(this);
+        webView.resumeTimers();
         if (tvMode) webView.setBackgroundColor(Color.BLACK);
         WebSettings settings = webView.getSettings();
         CookieManager.getInstance().setAcceptCookie(true);
@@ -564,28 +717,25 @@ public class MainActivity extends Activity {
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                if (!request.isForMainFrame()) return false;
-                Uri destination = request.getUrl();
-                String scheme = destination.getScheme();
-                if ("http".equalsIgnoreCase(scheme)) {
-                    if (destination.toString().equals(approvedHttpUrl)) {
-                        approvedHttpUrl = null;
-                        return false;
-                    }
-                    confirmHttp(destination.toString());
-                    return true;
-                }
-                if (!"https".equalsIgnoreCase(scheme)) {
-                    Toast.makeText(MainActivity.this, R.string.navigation_blocked, Toast.LENGTH_SHORT).show();
-                    return true;
-                }
-                return false;
+                return overrideNavigation(request.getUrl().toString(), request.isForMainFrame(),
+                        request.getMethod());
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return overrideNavigation(url, true, "GET");
+            }
+
+            @Override
+            public void onFormResubmission(WebView view, Message dontResend, Message resend) {
+                dontResend.sendToTarget();
             }
 
             @Override
             public void onPageStarted(WebView view, String pageUrl,
                                       android.graphics.Bitmap favicon) {
-                if (view == webView) {
+                if (view == webView && !BLANK.equals(pageUrl)) {
+                    navigationErrorShown = false;
                     currentUrl = pageUrl;
                     if (loadingLine.getVisibility() != View.VISIBLE) showLoading();
                 }
@@ -618,7 +768,25 @@ public class MainActivity extends Activity {
                 createWebView(BLANK);
                 address.setText(currentUrl);
                 Toast.makeText(MainActivity.this, R.string.page_stopped, Toast.LENGTH_LONG).show();
+                showNavigationError(webView, false);
                 return true;
+            }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request,
+                                        WebResourceError error) {
+                if (request.isForMainFrame()) {
+                    showNavigationError(view, "GET".equalsIgnoreCase(request.getMethod()));
+                }
+            }
+
+            @Override
+            public void onReceivedHttpError(WebView view, WebResourceRequest request,
+                                            WebResourceResponse response) {
+                int status = response.getStatusCode();
+                if (request.isForMainFrame() && status >= 400 && status != 401 && status != 407) {
+                    showNavigationError(view, "GET".equalsIgnoreCase(request.getMethod()));
+                }
             }
         });
         webView.setWebChromeClient(new WebChromeClient() {
@@ -695,10 +863,46 @@ public class MainActivity extends Activity {
         webView.setDownloadListener((downloadUrl, userAgent, contentDisposition, mimeType, contentLength) ->
                 confirmDownload(downloadUrl, userAgent, contentDisposition, mimeType));
         content.addView(webView, new FrameLayout.LayoutParams(-1, -1));
+        // Keep focus on the page; otherwise it stays highlighted on the Home button.
+        if (tvMode) webView.requestFocus();
         homePage = false;
         address.setText(url.equals(BLANK) ? currentUrl : url);
         updateFavoriteButton();
         webView.loadUrl(url);
+    }
+
+    private void showNavigationError(WebView failedView, boolean canRetry) {
+        String failedUrl = currentUrl;
+        failedView.post(() -> {
+            if (failedView != webView || isFinishing() || isDestroyed()
+                    || !failedUrl.equals(currentUrl) || navigationErrorShown) return;
+            navigationErrorShown = true;
+            loadingLine.removeCallbacks(hideLoading);
+            loadingLine.setVisibility(View.INVISIBLE);
+            Toast.makeText(this, R.string.page_failed, Toast.LENGTH_LONG).show();
+            String[] actions = canRetry
+                    ? new String[]{getString(R.string.nav_reload), getString(R.string.edit_address),
+                            getString(R.string.nav_home)}
+                    : new String[]{getString(R.string.edit_address), getString(R.string.nav_home)};
+            showChoices(actions, which -> {
+                if (failedView != webView || !failedUrl.equals(currentUrl)) return;
+                if (canRetry && which == 0) reloadPage();
+                else if (which == (canRetry ? 1 : 0)) {
+                    address.setText(failedUrl);
+                    address.requestFocus();
+                    ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
+                            .showSoftInput(address, InputMethodManager.SHOW_IMPLICIT);
+                } else showHomePage();
+            });
+            // The failed page must not show through the panel (Chromium's error icon).
+            if (menuPanel != null) {
+                android.graphics.drawable.LayerDrawable cover =
+                        new android.graphics.drawable.LayerDrawable(new android.graphics.drawable.Drawable[]{
+                                new android.graphics.drawable.ColorDrawable(Color.BLACK)});
+                cover.setLayerInset(0, 0, content.getTop(), 0, 0);
+                menuPanel.setBackground(cover);
+            }
+        });
     }
 
     private void createCursor() {
@@ -814,7 +1018,8 @@ public class MainActivity extends Activity {
             }
             return super.dispatchKeyEvent(event);
         }
-        if (tvMode) {
+        // The home screen has no page to point at, so the D-pad moves focus between its buttons.
+        if (tvMode && menuPanel == null && !homePage) {
             int key = event.getKeyCode();
             if (key == KeyEvent.KEYCODE_DPAD_UP || key == KeyEvent.KEYCODE_DPAD_DOWN
                     || key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT
@@ -873,13 +1078,22 @@ public class MainActivity extends Activity {
         editor.setSelection(next);
     }
 
+    private int adBlockStateLabel() {
+        if (!adBlockEnabled) return R.string.tracker_block_disabled;
+        if (nativeFiltersReady && nativeFiltersComplete) return R.string.tracker_block_enabled;
+        synchronized (this) {
+            return adBlockInitializationRunning
+                    ? R.string.tracker_block_loading : R.string.tracker_block_reduced;
+        }
+    }
+
     private void showMenu() {
         String popupLabel = getString(popupsBlocked
                 ? R.string.popup_block_enabled : R.string.popup_block_disabled);
-        String adBlockLabel = getString(adBlockEnabled
-                ? R.string.tracker_block_enabled : R.string.tracker_block_disabled);
-        String[] entries = {getString(R.string.menu_forward), popupLabel,
-                adBlockLabel, getString(R.string.menu_clear_cache), getString(R.string.menu_about)};
+        String adBlockLabel = getString(adBlockStateLabel());
+        String[] entries = {getString(R.string.menu_forward), popupLabel, adBlockLabel,
+                getString(R.string.menu_search_engine, SEARCH_ENGINES[searchEngineIndex()][0]),
+                getString(R.string.menu_clear_data), getString(R.string.menu_about)};
         showChoices(entries, which -> {
             if (which == 0 && webView != null && webView.canGoForward()) webView.goForward();
             if (which == 1) {
@@ -888,27 +1102,101 @@ public class MainActivity extends Activity {
                         .putBoolean("popupsBlocked", popupsBlocked).apply();
                 if (webView != null) applyPopupPolicy(webView.getSettings());
             }
-            if (which == 2) {
-                adBlockEnabled = !adBlockEnabled;
-                getPreferences(MODE_PRIVATE).edit()
-                        .putBoolean("adBlockEnabled", adBlockEnabled).apply();
-                if (adBlockEnabled) {
-                    initializeAdblock();
-                } else {
-                    nativeFiltersReady = false;
-                    adBlockExecutor.execute(MainActivity::nativeClearFilters);
-                }
-                if (webView != null) reloadPage();
-            }
-            if (which == 3 && webView != null) {
-                webView.clearCache(true);
-                webView.clearFormData();
-                Toast.makeText(this, R.string.cache_cleared, Toast.LENGTH_SHORT).show();
-            }
-            if (which == 4) {
+            if (which == 2) adBlockMenu();
+            if (which == 3) chooseSearchEngine();
+            if (which == 4) clearDataMenu();
+            if (which == 5) {
                 navigateTo(ABOUT);
             }
         });
+    }
+
+    private void adBlockMenu() {
+        String origin = NavigationPolicy.origin(currentUrl);
+        boolean siteMenu = adBlockEnabled && !homePage && origin != null;
+        ArrayList<String> labels = new ArrayList<>();
+        ArrayList<Runnable> actions = new ArrayList<>();
+        labels.add(getString(adBlockStateLabel()));
+        actions.add(this::toggleAdBlock);
+        if (siteMenu) {
+            boolean exempt = exemptOrigins.contains(origin);
+            labels.add(getString(exempt ? R.string.site_filter_off : R.string.site_filter_on,
+                    Uri.parse(currentUrl).getHost()));
+            actions.add(() -> {
+                if (exempt) exemptOrigins.remove(origin);
+                else exemptOrigins.add(origin);
+                reloadPage();
+            });
+        }
+        labels.add(getString(R.string.regional_list, regionalListName()));
+        actions.add(this::chooseRegionalList);
+        showChoices(labels.toArray(new String[0]), which -> actions.get(which).run());
+    }
+
+    private void toggleAdBlock() {
+        adBlockEnabled = !adBlockEnabled;
+        getPreferences(MODE_PRIVATE).edit().putBoolean("adBlockEnabled", adBlockEnabled).apply();
+        if (adBlockEnabled) {
+            initializeAdblock();
+        } else {
+            nativeFiltersReady = false;
+            adBlockExecutor.execute(this::clearEngineIfOwner);
+        }
+        if (webView != null) reloadPage();
+    }
+
+    private static final String[] REGIONAL_CHOICES = {"auto", "pt", "es", "none"};
+
+    private String regionalChoice() {
+        String saved = getPreferences(MODE_PRIVATE).getString("regionalList", "auto");
+        for (String choice : REGIONAL_CHOICES) if (choice.equals(saved)) return saved;
+        return "auto";
+    }
+
+    private String regionalListName() {
+        switch (regionalChoice()) {
+            case "pt": return getString(R.string.regional_pt);
+            case "es": return getString(R.string.regional_es);
+            case "none": return getString(R.string.regional_none);
+            default: return getString(R.string.regional_auto);
+        }
+    }
+
+    private void chooseRegionalList() {
+        String[] names = {getString(R.string.regional_auto), getString(R.string.regional_pt),
+                getString(R.string.regional_es), getString(R.string.regional_none)};
+        showChoices(names, which -> {
+            getPreferences(MODE_PRIVATE).edit()
+                    .putString("regionalList", REGIONAL_CHOICES[which]).apply();
+            if (adBlockEnabled) initializeAdblock();
+        });
+    }
+
+    private void clearDataMenu() {
+        String[] entries = {getString(R.string.clear_cache), getString(R.string.clear_site_data),
+                getString(R.string.clear_everything)};
+        showChoices(entries, which -> {
+            if (which == 0 || which == 2) clearWebViewCache();
+            if (which == 0) {
+                Toast.makeText(this, R.string.data_cleared, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            WebStorage.getInstance().deleteAllData();
+            CookieManager.getInstance().removeAllCookies(removed -> {
+                CookieManager.getInstance().flush();
+                if (isFinishing() || isDestroyed()) return;
+                Toast.makeText(this, R.string.data_cleared, Toast.LENGTH_SHORT).show();
+                if (webView != null && !homePage) reloadPage();
+            });
+        });
+    }
+
+    // The home screen has no WebView, so a short-lived one reaches the shared HTTP cache.
+    private void clearWebViewCache() {
+        WebView target = webView != null ? webView : new WebView(this);
+        target.clearCache(true);
+        target.clearFormData();
+        if (target != webView) target.destroy();
     }
 
     private void applyPopupPolicy(WebSettings settings) {
@@ -961,7 +1249,16 @@ public class MainActivity extends Activity {
     }
 
     private WebResourceResponse filterNetworkRequest(WebResourceRequest request) {
+        if (request.isForMainFrame()
+                && NavigationPolicy.blocksHttpForm(request.getUrl().toString(), request.getMethod())) {
+            runOnUiThread(() -> Toast.makeText(this, R.string.http_form_blocked,
+                    Toast.LENGTH_LONG).show());
+            return new WebResourceResponse("text/plain", "UTF-8", 403, "Blocked",
+                    new java.util.HashMap<>(), new ByteArrayInputStream(EMPTY_BODY));
+        }
         if (!adBlockEnabled || request.isForMainFrame()) return null;
+        String pageOrigin = NavigationPolicy.origin(currentUrl);
+        if (pageOrigin != null && exemptOrigins.contains(pageOrigin)) return null;
         String resourceUrl = request.getUrl().toString();
         boolean blocked = nativeFiltersReady && nativeShouldBlock(resourceUrl, currentUrl,
                 requestType(request), request.getMethod());
@@ -987,12 +1284,7 @@ public class MainActivity extends Activity {
                 String[] lists = readCachedFilterLists();
                 boolean hasCachedLists = lists[0] != null || lists[1] != null;
                 if (hasCachedLists && adBlockEnabled) installFilterLists(lists);
-                long lastUpdate = getPreferences(MODE_PRIVATE)
-                        .getLong("filterListsUpdatedAt", 0);
-                if (lists[0] == null || lists[1] == null || !hasCachedLists
-                        || System.currentTimeMillis() - lastUpdate >= FILTER_LIST_MAX_AGE) {
-                    updateFilterLists(lists);
-                }
+                if (filterListsStale(lists)) updateFilterLists(lists);
             } finally {
                 boolean retry;
                 synchronized (this) {
@@ -1005,16 +1297,32 @@ public class MainActivity extends Activity {
         });
     }
 
+    private String regionalLanguage() {
+        String choice = regionalChoice();
+        if (choice.equals("auto")) return Locale.getDefault().getLanguage();
+        return choice.equals("none") ? "" : choice;
+    }
+
+    private String regionalListUrl() {
+        return FilterLists.regionalUrl(regionalLanguage());
+    }
+
+    private boolean regionalListCached() {
+        return regionalListUrl() != null && regionalLanguage().equals(
+                getPreferences(MODE_PRIVATE).getString("regionalListLanguage", ""));
+    }
+
     private String[] readCachedFilterLists() {
         String[] lists = new String[FILTER_LIST_FILES.length];
         for (int i = 0; i < FILTER_LIST_FILES.length; i++) {
+            if (i == REGIONAL_LIST && !regionalListCached()) continue;
             File file = new File(getFilesDir(), FILTER_LIST_FILES[i]);
             if (!file.isFile() || file.length() <= 0 || file.length() > MAX_FILTER_LIST_BYTES) continue;
             try (InputStream input = new FileInputStream(file);
                  ByteArrayOutputStream output = new ByteArrayOutputStream()) {
                 copyLimited(input, output);
                 lists[i] = output.toString(StandardCharsets.UTF_8.name());
-                if (!isValidFilterList(lists[i])) lists[i] = null;
+                if (!FilterLists.isValid(lists[i])) lists[i] = null;
             } catch (IOException ignored) {
                 lists[i] = null;
             }
@@ -1022,26 +1330,47 @@ public class MainActivity extends Activity {
         return lists;
     }
 
+    private boolean filterListStale(int index, String[] cachedLists) {
+        if (index == REGIONAL_LIST && regionalListUrl() == null) return false;
+        if (cachedLists[index] == null) return true;
+        long updatedAt = getPreferences(MODE_PRIVATE).getLong("filterListUpdatedAt" + index, 0);
+        return FilterLists.isStale(updatedAt, System.currentTimeMillis());
+    }
+
+    private boolean filterListsStale(String[] cachedLists) {
+        for (int i = 0; i < FILTER_LIST_FILES.length; i++) {
+            if (filterListStale(i, cachedLists)) return true;
+        }
+        return false;
+    }
+
     private void updateFilterLists(String[] cachedLists) {
-        String[] urls = {EASYLIST_URL, EASYPRIVACY_URL};
+        String regionalLanguage = regionalLanguage();
+        String[] urls = {EASYLIST_URL, EASYPRIVACY_URL, FilterLists.regionalUrl(regionalLanguage)};
         boolean updated = false;
         for (int i = 0; i < urls.length; i++) {
             if (!adBlockEnabled) return;
+            if (urls[i] == null || !filterListStale(i, cachedLists)) continue;
             String downloaded = downloadFilterList(urls[i]);
             if (downloaded == null) continue;
+            // The user may have switched region while this list downloaded.
+            if (i == REGIONAL_LIST && !regionalLanguage.equals(regionalLanguage())) continue;
+            // Keep the download in memory even if storage is full.
+            cachedLists[i] = downloaded;
+            updated = true;
             try {
                 saveFilterList(i, downloaded);
-                cachedLists[i] = downloaded;
-                updated = true;
             } catch (IOException ignored) {
-                // Keep using the in-memory copy if storage is unavailable.
+                continue;
             }
+            android.content.SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE).edit()
+                    .putLong("filterListUpdatedAt" + i, System.currentTimeMillis());
+            if (i == REGIONAL_LIST) {
+                editor.putString("regionalListLanguage", regionalLanguage);
+            }
+            editor.apply();
         }
-        if (updated && adBlockEnabled) {
-            installFilterLists(cachedLists);
-            getPreferences(MODE_PRIVATE).edit()
-                    .putLong("filterListsUpdatedAt", System.currentTimeMillis()).apply();
-        }
+        if (updated && adBlockEnabled) installFilterLists(cachedLists);
     }
 
     private String downloadFilterList(String url) {
@@ -1058,7 +1387,7 @@ public class MainActivity extends Activity {
                  ByteArrayOutputStream output = new ByteArrayOutputStream()) {
                 copyLimited(input, output);
                 String contents = output.toString(StandardCharsets.UTF_8.name());
-                return isValidFilterList(contents) ? contents : null;
+                return FilterLists.isValid(contents) ? contents : null;
             }
         } catch (IOException ignored) {
             return null;
@@ -1092,47 +1421,58 @@ public class MainActivity extends Activity {
         }
     }
 
-    private boolean isValidFilterList(String contents) {
-        String trimmed = contents.trim();
-        return trimmed.length() >= 256 && trimmed.startsWith("[Adblock Plus ");
-    }
-
+    // The running engine stays active until the new one is built, so a failed
+    // update never leaves the page without the full lists. The lock covers the
+    // begin/add/finish sequence because the native pending set is process-wide.
     private void installFilterLists(String[] lists) {
         boolean hasList = false;
         for (String list : lists) hasList |= list != null && !list.isEmpty();
-        if (!hasList || !adBlockEnabled) return;
-        nativeClearFilters();
-        nativeFiltersReady = false;
-        nativeBeginFilterLists();
-        boolean added = false;
-        for (String list : lists) {
-            if (list != null && !list.isEmpty()) {
-                if (!nativeAddFilterList(list)) {
-                    nativeClearFilters();
-                    return;
-                }
-                added = true;
+        if (!hasList) return;
+        synchronized (ENGINE_LOCK) {
+            if (!adBlockEnabled || engineOwner != ENGINE_OWNER.get()) return;
+            nativeBeginFilterLists();
+            for (String list : lists) {
+                if (list != null && !list.isEmpty() && !nativeAddFilterList(list)) return;
+            }
+            if (adBlockEnabled && engineOwner == ENGINE_OWNER.get()
+                    && nativeFinishFilterLists()) {
+                nativeFiltersComplete = lists[0] != null && lists[1] != null;
+                nativeFiltersReady = true;
             }
         }
-        nativeFiltersReady = added && adBlockEnabled && nativeFinishFilterLists();
+    }
+
+    private void clearEngineIfOwner() {
+        synchronized (ENGINE_LOCK) {
+            if (engineOwner != ENGINE_OWNER.get()) return;
+            nativeClearFilters();
+        }
     }
 
     private void showConfirmation(String title, String message, String acceptLabel,
                                   String cancelLabel, Runnable onAccept) {
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = (tvMode ? new AlertDialog.Builder(this, R.style.TvDialog)
+                : new AlertDialog.Builder(this))
                 .setTitle(title)
                 .setMessage(message)
-                .setPositiveButton(acceptLabel, (dialog, which) -> onAccept.run())
+                .setPositiveButton(acceptLabel, (view, which) -> onAccept.run())
                 .setNegativeButton(cancelLabel, null)
                 .setCancelable(true)
-                .show();
+                .create();
+        dialog.show();
+        if (!tvMode) return;
+        // Same amber focus as the rest of the interface instead of the system pill.
+        for (int which : new int[]{AlertDialog.BUTTON_POSITIVE, AlertDialog.BUTTON_NEGATIVE}) {
+            Button action = dialog.getButton(which);
+            action.setBackgroundResource(R.drawable.tv_button);
+            action.setTextColor(getResources().getColorStateList(R.color.tv_button_text, getTheme()));
+        }
     }
 
     private void confirmDownload(String url, String userAgent,
                                  String contentDisposition, String mimeType) {
         Uri uri = Uri.parse(url);
-        if (!"http".equalsIgnoreCase(uri.getScheme())
-                && !"https".equalsIgnoreCase(uri.getScheme())) {
+        if (NavigationPolicy.decide(url) == NavigationPolicy.Decision.BLOCK) {
             Toast.makeText(this, R.string.download_protocol_blocked, Toast.LENGTH_LONG).show();
             return;
         }
@@ -1200,15 +1540,48 @@ public class MainActivity extends Activity {
         menuPanel.setOnClickListener(view -> closeMenu());
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
-        list.setPadding(dp(16), dp(16), dp(16), dp(16));
-        list.setBackgroundResource(R.drawable.tv_address);
+        list.setPadding(dp(12), dp(12), dp(12), dp(12));
+        list.setBackgroundResource(R.drawable.menu_panel);
         list.setClickable(true);
         FrameLayout.LayoutParams panelSize = new FrameLayout.LayoutParams(
-                Math.min(dp(620), root.getWidth() - dp(32)), -2, Gravity.CENTER);
+                Math.min(dp(600), root.getWidth() - dp(48)), -2, Gravity.CENTER);
         menuPanel.addView(list, panelSize);
         for (int i = 0; i < entries.length; i++) {
             final int index = i;
-            Button item = button(entries[i], list);
+            if (i > 0) {
+                View divider = new View(this);
+                divider.setBackgroundColor(getResources().getColor(R.color.tv_divider));
+                LinearLayout.LayoutParams dividerSize = new LinearLayout.LayoutParams(-1, dp(1));
+                dividerSize.setMargins(dp(20), 0, dp(20), 0);
+                list.addView(divider, dividerSize);
+            }
+            LinearLayout item = new LinearLayout(this);
+            item.setGravity(Gravity.CENTER_VERTICAL);
+            item.setPadding(dp(20), 0, dp(20), 0);
+            item.setBackgroundResource(R.drawable.tv_button);
+            item.setFocusable(true);
+            item.setFocusableInTouchMode(true);
+            item.setClickable(true);
+            item.setStateListAnimator(null);
+            list.addView(item, new LinearLayout.LayoutParams(-1, dp(48)));
+            int separator = entries[i].lastIndexOf(": ");
+            TextView label = new TextView(this);
+            label.setText(separator < 0 ? entries[i] : entries[i].substring(0, separator));
+            label.setTextSize(18);
+            label.setDuplicateParentStateEnabled(true);
+            label.setTextColor(getResources().getColorStateList(R.color.tv_button_text, getTheme()));
+            item.addView(label, new LinearLayout.LayoutParams(0, -2, 1));
+            if (separator >= 0) {
+                TextView value = new TextView(this);
+                value.setText(entries[i].substring(separator + 2));
+                value.setTextSize(16);
+                value.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+                value.setPadding(dp(16), 0, 0, 0);
+                value.setDuplicateParentStateEnabled(true);
+                value.setTextColor(getResources().getColorStateList(R.color.tv_button_value, getTheme()));
+                item.addView(value, new LinearLayout.LayoutParams(-2, -2));
+            }
+            item.setContentDescription(entries[i]);
             item.setOnClickListener(view -> {
                 closeMenu();
                 choice.select(index);
@@ -1216,6 +1589,8 @@ public class MainActivity extends Activity {
         }
         root.addView(menuPanel, new FrameLayout.LayoutParams(-1, -1));
         cursorView.bringToFront();
+        // The D-pad moves focus inside the menu; start on the first entry.
+        if (tvMode && list.getChildCount() > 0) list.getChildAt(0).requestFocus();
     }
 
     private void closeMenu() {
@@ -1240,16 +1615,13 @@ public class MainActivity extends Activity {
         if (input.startsWith("https://") || input.startsWith("http://")) {
             url = input;
         } else if (input.contains(" ") || !input.contains(".")) {
-            try {
-                url = "https://www.google.com/search?q=" + URLEncoder.encode(input, "UTF-8");
-            } catch (java.io.UnsupportedEncodingException error) {
-                throw new AssertionError(error);
-            }
+            url = searchUrl(input);
         } else {
             url = "https://" + input;
         }
         navigateTo(url);
         address.clearFocus();
+        if (tvMode && webView != null) webView.requestFocus();
     }
 
     private void hideFullscreen() {
@@ -1324,22 +1696,24 @@ public class MainActivity extends Activity {
         loadingLine.removeCallbacks(hideLoading);
         closeMenu();
         hideFullscreen();
+        clearWebViewCache();
         if (webView != null) {
             if (webView.getParent() instanceof ViewGroup) {
                 ((ViewGroup) webView.getParent()).removeView(webView);
             }
             webView.stopLoading();
             webView.clearHistory();
-            webView.clearCache(true);
             webView.destroy();
             webView = null;
         }
         adBlockEnabled = false;
         nativeFiltersReady = false;
         if (Build.VERSION.SDK_INT >= 24) {
-            ServiceWorkerController.getInstance().setServiceWorkerClient(null);
+            if (engineOwner == ENGINE_OWNER.get()) {
+                ServiceWorkerController.getInstance().setServiceWorkerClient(null);
+            }
         }
-        adBlockExecutor.execute(MainActivity::nativeClearFilters);
+        adBlockExecutor.execute(this::clearEngineIfOwner);
         adBlockExecutor.shutdown();
         super.onDestroy();
     }

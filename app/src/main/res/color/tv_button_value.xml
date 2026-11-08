@@ -1,0 +1,6 @@
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_enabled="false" android:color="?android:attr/textColorTertiary" />
+    <item android:state_pressed="true" android:color="@color/brand_ink" />
+    <item android:state_focused="true" android:color="@color/brand_ink" />
+    <item android:color="@color/brand_amber" />
+</selector>

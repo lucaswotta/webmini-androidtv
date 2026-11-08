@@ -78,6 +78,8 @@ To find your device's architecture, run `adb shell getprop ro.product.cpu.abilis
 2. In the TV settings, allow Downloader to install unknown apps.
 3. Open Downloader and enter code `3325686`.
 
+   ![Downloader resolving code 3325686 to the WebMini APK on the releases page](docs/images/downloader.png)
+
    Or use the direct link:
 
    ```text
@@ -98,8 +100,10 @@ Enable developer options and network debugging on the TV, then:
 
 ```sh
 adb connect <tv-ip>:5555
-adb install WebMini-universal.apk
+adb install -r WebMini-universal.apk
 ```
+
+`-r` updates an installed copy and keeps its data; without it the command fails when WebMini is already installed. The APK must carry the certificate listed in [Release signing certificate](#release-signing-certificate), or Android rejects the update, and uninstalling first erases favorites and options.
 
 WebMini registers as a browser, so links opened by other apps can open in it.
 
@@ -112,20 +116,21 @@ WebMini registers as a browser, so links opened by other apps can open in it.
 | Ads and trackers | Blocks matching network requests with EasyList and EasyPrivacy, including requests made by service workers. A short built-in host list covers the seconds while the lists load. |
 | Pop-ups and new windows | Never opens a second window. A pop-up started by a click asks for confirmation and shows the destination host; one started by a script is discarded. |
 | Redirects to other apps | Blocks navigation to any scheme other than `http` and `https`. |
-| Unencrypted pages | Asks before loading any HTTP page, whether it comes from a link, a redirect, the address bar, a favorite or another app. Mixed content is never loaded. |
+| Unencrypted pages | Asks before loading any HTTP page opened by GET, whether it comes from a link, a redirect, the address bar, a favorite or another app. Forms sent over HTTP are blocked. Mixed content is never loaded. |
 | Downloads | Shows file name, host and type before saving to Downloads. Files never open automatically. |
 | Device access | Denies camera, microphone and location requests. File uploads and `file://` or `content://` access are blocked. |
 | Malicious sites | Android System WebView Safe Browsing is on (Android 8.0 and later). |
 | Crashed pages | Recovers when the page renderer stops, without closing the app. |
 
-Filter lists are downloaded over HTTPS from `easylist.to`, refreshed every 7 days, limited to 5 MB each, checked for a valid header and replaced atomically. Both blocking options can be turned off from the options menu.
+Filter lists are downloaded over HTTPS from `easylist.to` and, when a regional list is enabled, `easylist-downloads.adblockplus.org`, refreshed every 7 days (a list that fails to download is retried on the next launch), limited to 5 MB each, checked for a valid header and replaced atomically. The regional list can be set to automatic, Portuguese, Spanish or none in Menu > Block ads and trackers > Regional list. Menu > Block ads and trackers also provides "Filter on this site" to create an exception for the current session only. The menu displays "loading lists" while lists are compiled and "basic list only" when running on fallback rules. Both blocking options can be turned off from the options menu.
 
 ### Browsing
 
-- Address bar that accepts a URL or a Google search.
+- Address bar that accepts a URL or a search, with Google, DuckDuckGo, Bing or Brave as the engine. Queries use the chosen search engine.
+- Voice search using the remote microphone, performed by the speech recognizer installed on the device (audio is processed by that recognizer).
 - Back, forward, reload and home.
-- Up to 4 favorites on the home screen, so the page always fits the screen without scrolling.
-- Clear cache from the options menu. The cache is also erased every time the app closes.
+- Up to 4 favorites are shown on the home screen so the page always fits the screen without scrolling; favorites beyond 4 remain stored.
+- Clear cache from the options menu. The cache is also erased when the app is closed normally; keeping the cache increases device storage use.
 - Full-screen video.
 - System light and dark themes on phones; a black interface on TV.
 
@@ -133,7 +138,7 @@ Filter lists are downloaded over HTTPS from `easylist.to`, refreshed every 7 day
 
 | Input | Action |
 | --- | --- |
-| D-pad | Moves the pointer. Holding a direction speeds it up. |
+| D-pad | Moves focus on the home screen and in menus; moves the pointer on web pages. Holding a direction speeds the pointer up. |
 | Pointer at the top or bottom edge | Scrolls the page. |
 | OK, Enter or gamepad A | Clicks under the pointer. |
 | Back or gamepad B | Closes the menu, leaves full screen, or goes back one page. On the home screen, exits. |
@@ -148,25 +153,25 @@ WebMini has no analytics, telemetry, account or browsing history. The back stack
 
 Stored on the device, in the app's private storage:
 
-- favorites and the two blocking options;
-- the cached EasyList and EasyPrivacy files;
+- preferences (blocking options, chosen search engine and regional list choice) and favorites;
+- the cached EasyList, EasyPrivacy and regional list files;
 - cookies and site storage, managed by Android System WebView. Third-party cookies are refused;
-- the page cache, which WebMini erases when the app closes and on demand from the options menu.
+- the page cache, which WebMini erases when the app is closed normally and on demand from the options menu; keeping the cache increases device storage use.
 
 App data is excluded from cloud backup, device-to-device transfer and `adb backup`. To erase everything, open Settings > Apps > WebMini > Clear storage.
 
 Requests made outside the pages you visit:
 
-- `easylist.to`, at most once every 7 days, while ad blocking is on;
+- `easylist.to` and, when a regional list is enabled, `easylist-downloads.adblockplus.org`, every 7 days while ad blocking is on (a list that fails to download is retried on the next launch);
 - Google Safe Browsing, through Android System WebView, on Android 8.0 and later;
-- `google.com`, when you search from the home screen or the address bar.
+- the chosen search engine (Google, DuckDuckGo, Bing or Brave), when you search from the home screen or the address bar.
 
 ## Limitations
 
 - Filtering acts on network requests only. Blocked ads can leave empty space on the page, and ads served by the site itself, including YouTube video ads, are not removed.
 - Sites can detect that requests were blocked.
-- No regional filter lists are included. Sites in languages other than English rely on EasyList's generic rules.
-- The search engine is fixed to Google.
+- Android System WebView does not pass every request to the filter: the interceptor sees the first URL of a redirected resource, not the chain, and cannot cover everything a browser with its own network stack can. A POST form to an HTTP address is not covered by the HTTP warning because the WebView does not report POST navigations to that callback.
+- Regional filter lists exist for Portuguese and Spanish (chosen automatically by device language or in Menu > Block ads and trackers > Regional list). Other languages rely on EasyList's generic rules.
 - WebMini does not make browsing anonymous.
 
 ## Requirements
@@ -184,11 +189,13 @@ Running WebMini on another device? [Open a device report](https://github.com/luc
 
 ## Build
 
-Requirements: JDK 17 or later, Android SDK Platform 36, Android NDK 27.2.12479018, Rust and [`cargo-ndk`](https://github.com/bbqsrc/cargo-ndk).
+Requirements: JDK 17 or later, Android SDK Platform 36, Android NDK 27.2.12479018, Rust 1.99.1 and [`cargo-ndk`](https://github.com/bbqsrc/cargo-ndk) 4.1.2. CI uses Rust 1.99.1 and cargo-ndk 4.1.2; install the same versions to reproduce builds locally.
 
 ```sh
+rustup toolchain install 1.99.1 --profile minimal
+rustup default 1.99.1
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-cargo install cargo-ndk --locked
+cargo install cargo-ndk --locked --version 4.1.2
 export ANDROID_HOME=/path/to/android/sdk
 ./gradlew :app:assembleDebug
 ```
@@ -210,6 +217,10 @@ webminiKeyPassword=...
 
 Without them, `assembleRelease` produces unsigned APKs.
 
+Continuous integration runs the unit tests and lint, builds both variants on every push to `main` and every pull request, and checks that each release APK carries the matching `libwebmini_adblock.so`. It uploads only the debug APKs; `SHA256SUMS.txt` is written by the release workflow. The workflows pin Rust 1.99.1, cargo-ndk 4.1.2 and each action by commit SHA, and the Gradle wrapper verifies the SHA-256 of its distribution.
+
+Pushing a tag `v*` runs `.github/workflows/release.yml`: it refuses a tag that does not match `versionName`, builds a signed release, checks every APK against the certificate digest in [Release signing certificate](#release-signing-certificate), renames the files to `WebMini-{universal,armeabi-v7a,arm64-v8a,x86_64}.apk`, writes `SHA256SUMS.txt` and attaches both to the release page. Signing reads the repository secrets `WEBMINI_KEYSTORE_BASE64` (the keystore encoded with `base64 -w0`), `WEBMINI_STORE_PASSWORD`, `WEBMINI_KEY_ALIAS` and `WEBMINI_KEY_PASSWORD`; no key material reaches the repository or the logs. The workflow runs only when the repository variable `WEBMINI_CI_RELEASE` is `true`; otherwise releases are built and published from a local machine.
+
 ### Project layout
 
 | Path | Contents |
@@ -228,6 +239,10 @@ SHA-256: AB:E8:D3:13:DC:19:19:CB:B4:6A:E4:9B:DC:CF:2C:BC:35:37:66:AF:2A:B3:FD:25
 ```
 
 Check a downloaded file with `apksigner verify --print-certs WebMini-universal.apk`.
+
+## Testing
+
+`./gradlew :app:testDebugUnitTest` runs the navigation policy tests. The manual checklist and the device matrix are in [`docs/testing.md`](docs/testing.md).
 
 ## Contributing
 

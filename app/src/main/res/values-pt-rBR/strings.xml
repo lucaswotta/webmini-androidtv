@@ -6,7 +6,7 @@
     <string name="nav_favorite_remove">Remover dos favoritos</string>
     <string name="nav_options">Opções</string>
     <string name="address_hint">Pesquisar ou digitar URL</string>
-    <string name="home_search_hint">Pesquisar no Google</string>
+    <string name="home_search_hint">Pesquisar no %s</string>
     <string name="favorites_title">Favoritos</string>
     <string name="favorites_empty">Seus sites favoritos aparecem aqui.</string>
     <string name="http_warning_title">Conexão sem criptografia</string>
@@ -38,6 +38,25 @@
     <string name="download_started">Download iniciado</string>
     <string name="download_permission_denied">Permissão negada; download cancelado</string>
     <string name="favorites_full">Limite de %d favoritos. Remova um para adicionar outro.</string>
-    <string name="menu_clear_cache">Limpar cache</string>
-    <string name="cache_cleared">Cache limpo</string>
+    <string name="menu_search_engine">Buscador: %s</string>
+    <string name="menu_clear_data">Limpar dados</string>
+    <string name="clear_cache">Cache</string>
+    <string name="clear_site_data">Cookies e dados dos sites (desconecta contas)</string>
+    <string name="clear_everything">Cache, cookies e dados dos sites</string>
+    <string name="data_cleared">Dados limpos</string>
+    <string name="voice_search">Pesquisa por voz</string>
+    <string name="voice_unavailable">A pesquisa por voz não está disponível neste aparelho</string>
+    <string name="tracker_block_loading">Bloquear anúncios e rastreadores: carregando listas</string>
+    <string name="tracker_block_reduced">Bloquear anúncios e rastreadores: listas parciais</string>
+    <string name="page_failed">Não foi possível carregar a página.</string>
+    <string name="edit_address">Editar endereço</string>
+    <string name="site_filter_on">Filtro em %s: ligado</string>
+    <string name="site_filter_off">Filtro em %s: desligado</string>
+    <string name="regional_list">Lista regional: %s</string>
+    <string name="regional_auto">automática</string>
+    <string name="regional_pt">português</string>
+    <string name="regional_es">espanhol</string>
+    <string name="regional_none">nenhuma</string>
+    <string name="http_form_blocked">Formulários enviados por conexão HTTP sem criptografia são bloqueados</string>
+    <string name="action_search">Pesquisar</string>
 </resources>

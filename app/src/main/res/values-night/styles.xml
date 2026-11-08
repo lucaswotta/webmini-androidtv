@@ -1,3 +1,17 @@
 <resources>
-    <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar" />
+    <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">@color/ui_accent</item>
+        <item name="android:colorBackground">@color/ui_background</item>
+        <item name="android:windowBackground">@color/ui_background</item>
+        <item name="android:colorButtonNormal">@color/ui_surface</item>
+        <item name="android:textColorPrimary">@color/ui_text</item>
+        <item name="android:textColorSecondary">@color/ui_muted</item>
+        <item name="android:textColorTertiary">@color/disabled_text</item>
+        <item name="android:colorControlNormal">@color/ui_border</item>
+        <item name="android:colorControlHighlight">@color/brand_amber</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/ui_background</item>
+        <item name="android:navigationBarColor">@color/ui_background</item>
+    </style>
 </resources>

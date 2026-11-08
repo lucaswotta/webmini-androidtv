@@ -1,14 +1,6 @@
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:state_focused="true">
-        <shape android:shape="rectangle">
-            <solid android:color="#38BDF8" />
-            <stroke android:width="1dp" android:color="#F5F4EF" />
-        </shape>
-    </item>
-    <item>
-        <shape android:shape="rectangle">
-            <solid android:color="#000000" />
-            <stroke android:width="1dp" android:color="#F5F4EF" />
-        </shape>
-    </item>
+    <item android:state_enabled="false"><shape android:shape="rectangle"><solid android:color="?android:attr/colorButtonNormal" /></shape></item>
+    <item android:state_pressed="true"><shape android:shape="rectangle"><solid android:color="@color/brand_pressed" /><stroke android:width="2dp" android:color="?android:attr/textColorPrimary" /></shape></item>
+    <item android:state_focused="true"><shape android:shape="rectangle"><solid android:color="@color/brand_amber" /><stroke android:width="2dp" android:color="?android:attr/textColorPrimary" /></shape></item>
+    <item><shape android:shape="rectangle"><solid android:color="?android:attr/colorButtonNormal" /></shape></item>
 </selector>
