@@ -15,7 +15,8 @@ Run on a TV device, with the debug or release build.
 | Area | Check | Expected |
 | --- | --- | --- |
 | Home | Open the app, press D-pad down | Focus moves to the search field, then to the favorites |
-| Home | Save 5 favorites | Fifth is refused with the limit message; the grid shows 4 and fits without scrolling |
+| Home | Save 5 favorites | The star opens the stored list to replace one; the grid keeps 4 and fits without scrolling |
+| Menu | Menu, Remove a favorite | Stored favorites are listed; the removed one leaves the home screen |
 | Pointer | Open a page, move the pointer to the bottom edge | Page scrolls |
 | HTTP | Open `http://neverssl.com` from the address bar and from a favorite | Warning each time |
 | Pop-up | Open a page that calls `window.open` from a click | Confirmation with the destination host |
@@ -26,6 +27,10 @@ Run on a TV device, with the debug or release build.
 | Search | Change the engine, search from home and from the address bar | Uses the chosen engine |
 | Voice | Press the microphone button on a device with a recognizer | The spoken text is searched |
 | Renderer | Kill the WebView process (`adb shell am kill`) | App stays open; page offers home and edit address |
+| Toolbar | Open a page, press up at the top, then left and right, then down | Focus ring on the address bar and each button; down returns to the pointer. If a text field in the page has the keyboard, press Back first |
+| Toolbar | Repeat the previous case 5 times, then move the pointer | Pointer still moves; no button stays highlighted |
+| Favorites | With 4 saved, focus the star and press OK | List of stored favorites; choosing one replaces it with the current page |
+| Favorites | Menu, "Remove favorite", choose one | The favorite disappears from the home grid |
 | Lifecycle | Visit a site, press home, reopen the app without killing it | Pages load and timers run |
 
 ## Devices

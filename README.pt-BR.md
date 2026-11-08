@@ -54,8 +54,8 @@ Partida a frio no mesmo aparelho: 0,7–1,4 s até a tela inicial.
 | ![Tela inicial com pesquisa e quatro favoritos](docs/images/home.png) | ![Menu de opções com avançar, bloqueio de pop-ups, bloqueio de anúncios e sobre](docs/images/menu.png) |
 | Confirmação de pop-up | Confirmação de download |
 | ![Diálogo pedindo para abrir www.wikipedia.org na aba atual](docs/images/popup.png) | ![Diálogo com nome do arquivo, host e tipo antes do download](docs/images/download.png) |
-| Aviso de HTTP | |
-| ![Diálogo avisando que neverssl.com usa conexão sem criptografia](docs/images/http.png) | |
+| Aviso de HTTP | Opções do bloqueio de anúncios |
+| ![Diálogo avisando que neverssl.com usa conexão sem criptografia](docs/images/http.png) | ![Submenu do bloqueio com a chave geral, a exceção por site e a lista regional](docs/images/filtering.png) |
 
 A interface segue o idioma do aparelho: inglês, espanhol ou português do Brasil.
 
@@ -129,7 +129,7 @@ As listas de filtro são baixadas por HTTPS de `easylist.to` e, quando uma lista
 - Barra de endereço que aceita URL ou pesquisa, com Google, DuckDuckGo, Bing ou Brave como buscador. A busca usa o buscador escolhido.
 - Pesquisa por voz com o microfone do controle, feita pelo reconhecedor de fala instalado no aparelho (o áudio é tratado por ele).
 - Voltar, avançar, recarregar e início.
-- Até 4 favoritos aparecem na tela inicial para caber na tela sem rolagem; favoritos além de 4 continuam guardados.
+- Até 4 favoritos aparecem na tela inicial para caber na tela sem rolagem; favoritos além de 4 continuam guardados. Com a grade cheia, a estrela abre a lista dos favoritos guardados para substituir um, e Menu > Remover um favorito apaga um.
 - Limpar cache pelo menu de opções. O cache também é apagado quando o app é encerrado normalmente; manter o cache aumenta o uso de armazenamento do aparelho.
 - Vídeo em tela cheia.
 - Temas claro e escuro do sistema no celular; interface preta na TV.
@@ -139,13 +139,15 @@ As listas de filtro são baixadas por HTTPS de `easylist.to` e, quando uma lista
 | Entrada | Ação |
 | --- | --- |
 | Direcional | Move o foco na tela inicial e nos menus; na página, move o ponteiro. Segurar a direção acelera o ponteiro. |
+| Cima no topo da página | Foca a barra de endereço, com o endereço atual selecionado. |
+| Baixo na barra de endereço | Sai da barra de endereço e volta ao ponteiro. |
 | Ponteiro na borda de cima ou de baixo | Rola a página. |
-| OK, Enter ou botão A do gamepad | Clica sob o ponteiro. |
-| Voltar ou botão B do gamepad | Fecha o menu, sai da tela cheia ou volta uma página. Na tela inicial, sai do app. |
-| Esquerda e direita num campo de texto | Movem o cursor do texto. |
-| Analógico do gamepad | Move o ponteiro. |
+| OK, Enter ou botão A do gamepad | Clica sob o ponteiro. Na barra de endereço, abre o teclado. |
+| Voltar ou botão B do gamepad | Fecha o menu ou o campo em foco, sai da barra de ferramentas e da tela cheia e depois volta uma página. Na tela inicial, sai do app. |
+| Esquerda e direita num campo de texto | Movem o cursor do texto ou deixam o campo nas pontas do texto. |
+| Analógico do gamepad | Move o ponteiro. É ignorado na tela inicial, nos menus e na barra de ferramentas. |
 
-O ponteiro some depois de 2,5 s sem uso e volta na próxima tecla.
+O ponteiro some depois de 2,5 s sem uso e volta na próxima tecla. Enquanto um campo de texto da página está com o teclado, o direcional vai para a página; use Voltar para sair do campo e então Cima alcança a barra de ferramentas.
 
 ## Privacidade
 

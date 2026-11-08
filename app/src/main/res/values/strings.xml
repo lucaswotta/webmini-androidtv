@@ -10,6 +10,7 @@
     <string name="home_search_hint">Search %s</string>
     <string name="favorites_title">Favorites</string>
     <string name="favorites_empty">Your favorite sites will appear here.</string>
+    <string name="favorite_removed">Favorite removed</string>
     <string name="http_warning_title">Unencrypted connection</string>
     <string name="http_warning_message">This site uses HTTP. Content and data sent may be visible on the network.\n\n%1$s</string>
     <string name="action_continue">Continue</string>
@@ -38,8 +39,9 @@
     <string name="download_description">Download requested in WebMini</string>
     <string name="download_started">Download started</string>
     <string name="download_permission_denied">Permission denied; download canceled</string>
-    <string name="favorites_full">Up to %d favorites. Remove one to add another.</string>
+    <string name="favorites_full">Up to %d favorites. Choose the one to replace.</string>
     <string name="menu_search_engine">Search engine: %s</string>
+    <string name="menu_remove_favorite">Remove a favorite</string>
     <string name="menu_clear_data">Clear data</string>
     <string name="clear_cache">Cache</string>
     <string name="clear_site_data">Cookies and site data (signs you out)</string>
