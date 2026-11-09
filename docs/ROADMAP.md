@@ -38,6 +38,28 @@ anything, then set budgets in this file and fail CI when they regress.
 - Baseline Profile for startup.
 - Trim memory on `onTrimMemory`; cap WebView cache size.
 
+### Low-RAM devices (1 GB and below)
+
+Decision: no "lite mode". Pages keep standard browser behavior (JavaScript,
+images, media, smooth scrolling); the savings come from the app and the
+filter, and from blocking ads and trackers, which is also the largest
+saving per page.
+
+Reference target: 1 GB, API 28, 32-bit (`armeabi-v7a`), plus a 512 MB
+emulator. Measured on 0.3.x: app 94.9 MB PSS and WebView renderer about
+218 MB on uol.com.br. Budgets for PSS, cold start and dropped frames
+(`dumpsys gfxinfo`) go in CI.
+
+- Handle `onRenderProcessGone`: recreate the WebView and reload the URL.
+- Save URL and scroll position; restore after the system kills the app.
+- `onTrimMemory`: clear caches, destroy the WebView in the background.
+- Measure the filter engine in memory; store it serialized in one file;
+  load only the lists for the chosen region and language.
+- Native UI without overdraw, shadows or blur; few classes and
+  dependencies; no disk writes at startup.
+- Detect an outdated system WebView and tell the user how to update it.
+- The `armeabi-v7a` APK is a first-class build, tested every release.
+
 ## Phase 3: correctness
 
 - Protect the first navigation until the lists are ready (#23).
@@ -66,8 +88,9 @@ Cheap, no continuous cost: find in page; page jumps (screen up/down, top,
 bottom); overscan margin setting; custom start page; connection diagnostics
 on the error screen.
 
-Reduce resources per page, fit the footprint goal: images on demand, scripts
-off per site, media plays only on user action.
+Optional per-site switches, off by default (images on demand, scripts off,
+media plays only on user action). The default behavior stays that of a
+standard browser.
 
 Larger bets: numbered links (pick a link by number with the remote, prototype
 first to check speed and compatibility), UI translations with RTL support,
@@ -75,7 +98,7 @@ content language per site, couch reading mode (largest cost, decide after the
 others).
 
 Priority for 0.4.0: find in page, page jumps, overscan margin, numbered links
-prototype, translations with RTL, and the three per-page resource switches.
+prototype, translations with RTL.
 
 ## Phase 5: professional baseline
 
