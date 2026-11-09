@@ -60,6 +60,23 @@ Order by value for a remote-only browser:
 7. More regional lists (#30).
 8. Media keys and fullscreen video behavior on the remote.
 
+### Additional candidates
+
+Cheap, no continuous cost: find in page; page jumps (screen up/down, top,
+bottom); overscan margin setting; custom start page; connection diagnostics
+on the error screen.
+
+Reduce resources per page, fit the footprint goal: images on demand, scripts
+off per site, media plays only on user action.
+
+Larger bets: numbered links (pick a link by number with the remote, prototype
+first to check speed and compatibility), UI translations with RTL support,
+content language per site, couch reading mode (largest cost, decide after the
+others).
+
+Priority for 0.4.0: find in page, page jumps, overscan margin, numbered links
+prototype, translations with RTL, and the three per-page resource switches.
+
 ## Phase 5: professional baseline
 
 - Releases from CI with `SHA256SUMS.txt` (#15).
