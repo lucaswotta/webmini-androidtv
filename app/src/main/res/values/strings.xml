@@ -68,4 +68,9 @@
     <string name="text_size">Text size: %1$d%%</string>
     <string name="filter_preparing">Preparing ad blocking…</string>
     <string name="filter_not_ready">Ad blocking is still loading. This page has reduced blocking.</string>
+    <string name="menu_find">Find in page</string>
+    <string name="find_previous">Previous match</string>
+    <string name="find_next">Next match</string>
+    <string name="find_close">Close find in page</string>
+    <string name="find_count" translatable="false">%1$d/%2$d</string>
 </resources>

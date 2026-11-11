@@ -67,4 +67,8 @@
     <string name="text_size">Tamanho do texto: %1$d%%</string>
     <string name="filter_preparing">Preparando o bloqueio de anúncios…</string>
     <string name="filter_not_ready">O bloqueio de anúncios ainda está carregando. Esta página tem bloqueio reduzido.</string>
+    <string name="menu_find">Localizar na página</string>
+    <string name="find_previous">Resultado anterior</string>
+    <string name="find_next">Próximo resultado</string>
+    <string name="find_close">Fechar localizar na página</string>
 </resources>

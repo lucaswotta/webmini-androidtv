@@ -96,6 +96,10 @@ public class MainActivity extends Activity {
     private boolean homePage;
     private boolean tvMode;
     private LinearLayout toolbarView;
+    private LinearLayout findBar;
+    private EditText findField;
+    private TextView findCount;
+    private Button findNextButton;
     private boolean cursorShown = true;
     private long edgeScrollStarted;
     private int edgeScrollDirection;
@@ -268,6 +272,7 @@ public class MainActivity extends Activity {
         Button menu = button("⋮", toolbar);
         menu.setContentDescription(getString(R.string.nav_options));
         menu.setOnClickListener(view -> showMenu());
+        createFindBar();
 
         if (tvMode) {
             View line = new View(this);
@@ -331,6 +336,9 @@ public class MainActivity extends Activity {
             case "←": icon = R.drawable.ic_back; break;
             case "⟳": icon = R.drawable.ic_reload; break;
             case "⋮": icon = R.drawable.ic_menu; break;
+            case "▲": icon = R.drawable.ic_find_previous; break;
+            case "▼": icon = R.drawable.ic_find_next; break;
+            case "✕": icon = R.drawable.ic_close; break;
         }
         if (icon != 0) {
             button.setText("");
@@ -340,6 +348,95 @@ public class MainActivity extends Activity {
         }
         parent.addView(button, size);
         return button;
+    }
+
+    // Built once and hidden, so reopening it keeps the last query.
+    private void createFindBar() {
+        findBar = new LinearLayout(this);
+        findBar.setGravity(Gravity.CENTER);
+        findBar.setBackgroundColor(getResources().getColor(
+                tvMode ? R.color.tv_surface : R.color.ui_background));
+        findBar.setPadding(dp(tvMode ? 16 : 4), dp(4), dp(tvMode ? 16 : 4), dp(4));
+        findBar.setVisibility(View.GONE);
+        page.addView(findBar, new LinearLayout.LayoutParams(-1, -2));
+        findField = new EditText(this);
+        findField.setHint(R.string.menu_find);
+        findField.setSingleLine(true);
+        findField.setGravity(Gravity.CENTER_VERTICAL);
+        findField.setSelectAllOnFocus(true);
+        findField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_NORMAL);
+        findField.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
+        findField.setBackgroundResource(R.drawable.tv_address);
+        findField.setTextColor(getResources().getColor(tvMode ? R.color.tv_text : R.color.ui_text));
+        findField.setHintTextColor(getResources().getColor(tvMode ? R.color.tv_muted : R.color.ui_muted));
+        findField.setTextSize(tvMode ? 17 : 16);
+        findField.setPadding(dp(16), 0, dp(16), 0);
+        findField.setOnEditorActionListener((view, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH
+                    || (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
+                findInPage();
+                return true;
+            }
+            return false;
+        });
+        findBar.addView(findField, new LinearLayout.LayoutParams(0, dp(tvMode ? 48 : 44), 1));
+        findCount = new TextView(this);
+        findCount.setTextColor(getResources().getColor(tvMode ? R.color.tv_muted : R.color.ui_muted));
+        findCount.setTextSize(16);
+        findCount.setGravity(Gravity.CENTER);
+        findCount.setMinWidth(dp(72));
+        findCount.setPadding(dp(8), 0, dp(8), 0);
+        findBar.addView(findCount, new LinearLayout.LayoutParams(-2, -2));
+        Button previous = button("▲", findBar);
+        previous.setContentDescription(getString(R.string.find_previous));
+        previous.setOnClickListener(view -> {
+            if (webView != null) webView.findNext(false);
+        });
+        findNextButton = button("▼", findBar);
+        findNextButton.setContentDescription(getString(R.string.find_next));
+        findNextButton.setOnClickListener(view -> {
+            if (webView != null) webView.findNext(true);
+        });
+        Button close = button("✕", findBar);
+        close.setContentDescription(getString(R.string.find_close));
+        close.setOnClickListener(view -> closeFindBar());
+    }
+
+    private boolean findBarShown() {
+        return findBar != null && findBar.getVisibility() == View.VISIBLE;
+    }
+
+    private void showFindBar() {
+        if (webView == null) return;
+        webView.setFindListener((active, total, done) -> findCount.setText(
+                getString(R.string.find_count, total == 0 ? 0 : active + 1, total)));
+        findCount.setText("");
+        findBar.setVisibility(View.VISIBLE);
+        findField.requestFocus();
+        // The keyboard only attaches to a field that has been laid out.
+        findField.post(() -> {
+            if (findField.isFocused()) showSoftKeyboard(findField);
+        });
+    }
+
+    private void findInPage() {
+        String query = findField.getText().toString();
+        if (webView == null || query.isEmpty()) return;
+        webView.findAllAsync(query);
+        hideSoftKeyboard(findField);
+        // Each OK on this button then jumps to the next match.
+        findNextButton.requestFocus();
+    }
+
+    private void closeFindBar() {
+        if (!findBarShown()) return;
+        // Hiding the focused row would hand focus to the first toolbar button.
+        if (focusInside(findBar)) {
+            hideSoftKeyboard(findField);
+            focusPage();
+        }
+        findBar.setVisibility(View.GONE);
+        if (webView != null) webView.clearMatches();
     }
 
     private int dp(int value) {
@@ -362,6 +459,7 @@ public class MainActivity extends Activity {
     }
 
     private void showHomePage() {
+        closeFindBar();
         if (webView != null) {
             webView.stopLoading();
             if (webView.getParent() instanceof ViewGroup) {
@@ -801,6 +899,7 @@ public class MainActivity extends Activity {
                     setCurrentUrl(pageUrl);
                     if (loadingLine.getVisibility() != View.VISIBLE) showLoading();
                 }
+                if (view == webView) closeFindBar();
                 if (view == webView && tvMode) view.requestFocus();
             }
 
@@ -1090,9 +1189,10 @@ public class MainActivity extends Activity {
             if (event.getAction() == KeyEvent.ACTION_UP) {
                 // Leaving a half-typed address or the toolbar first keeps Back from
                 // navigating away while the user is still editing.
-                if (editor != null) leaveEditor(editor);
-                else if (toolbarHasFocus() && menuPanel == null) leaveToolbar();
-                else navigateBack();
+                if (editor != null && editor != findField) leaveEditor(editor);
+                else if (toolbarHasFocus() && !focusInside(findBar) && menuPanel == null) {
+                    leaveToolbar();
+                } else navigateBack();
             }
             return true;
         }
@@ -1113,9 +1213,18 @@ public class MainActivity extends Activity {
                 }
                 return true;
             }
-            if (!homePage && key == KeyEvent.KEYCODE_DPAD_DOWN
+            if (!homePage && (key == KeyEvent.KEYCODE_DPAD_DOWN
+                            || (key == KeyEvent.KEYCODE_DPAD_UP && editor == findField))
                     && event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
-                leaveEditor(editor);
+                if (key == KeyEvent.KEYCODE_DPAD_UP) {
+                    hideSoftKeyboard(editor);
+                    address.requestFocus();
+                } else if (editor == address && findBarShown()) {
+                    hideSoftKeyboard(editor);
+                    findField.requestFocus();
+                } else {
+                    leaveEditor(editor);
+                }
                 return true;
             }
             if (!keyboardAcceptingText() && event.getAction() == KeyEvent.ACTION_DOWN
@@ -1131,7 +1240,15 @@ public class MainActivity extends Activity {
             if (key == KeyEvent.KEYCODE_DPAD_UP
                     || (key == KeyEvent.KEYCODE_DPAD_DOWN
                             && event.getAction() == KeyEvent.ACTION_DOWN)) {
-                if (key == KeyEvent.KEYCODE_DPAD_DOWN) leaveToolbar();
+                boolean inFindBar = focusInside(findBar);
+                if (key == KeyEvent.KEYCODE_DPAD_UP && inFindBar
+                        && event.getAction() == KeyEvent.ACTION_DOWN) {
+                    address.requestFocus();
+                } else if (key == KeyEvent.KEYCODE_DPAD_DOWN && !inFindBar && findBarShown()) {
+                    findField.requestFocus();
+                } else if (key == KeyEvent.KEYCODE_DPAD_DOWN) {
+                    leaveToolbar();
+                }
                 return true;
             }
             return super.dispatchKeyEvent(event);
@@ -1183,6 +1300,7 @@ public class MainActivity extends Activity {
     private EditText focusedEditor() {
         if (address != null && address.isFocused()) return address;
         if (homeSearch != null && homeSearch.isFocused()) return homeSearch;
+        if (findField != null && findField.isFocused()) return findField;
         return null;
     }
 
@@ -1200,11 +1318,16 @@ public class MainActivity extends Activity {
         }
     }
 
-    // Derived from the real focus so it cannot drift from what the user sees.
+    // The find bar counts as toolbar: in both rows the D-pad moves focus, not the pointer.
     private boolean toolbarHasFocus() {
+        return focusInside(toolbarView) || focusInside(findBar);
+    }
+
+    // Derived from the real focus so it cannot drift from what the user sees.
+    private boolean focusInside(View container) {
         View focused = getCurrentFocus();
-        while (focused != null && toolbarView != null) {
-            if (focused == toolbarView) return true;
+        while (focused != null && container != null) {
+            if (focused == container) return true;
             focused = focused.getParent() instanceof View ? (View) focused.getParent() : null;
         }
         return false;
@@ -1215,13 +1338,17 @@ public class MainActivity extends Activity {
         if (webView != null) webView.requestFocus();
     }
 
-    private void leaveEditor(EditText editor) {
-        focusPage();
+    private void hideSoftKeyboard(View view) {
         InputMethodManager inputMethod = (InputMethodManager)
                 getSystemService(INPUT_METHOD_SERVICE);
         if (inputMethod != null) {
-            inputMethod.hideSoftInputFromWindow(editor.getWindowToken(), 0);
+            inputMethod.hideSoftInputFromWindow(view.getWindowToken(), 0);
         }
+    }
+
+    private void leaveEditor(EditText editor) {
+        focusPage();
+        hideSoftKeyboard(editor);
         if (!homePage) revealCursor();
     }
 
@@ -1266,6 +1393,10 @@ public class MainActivity extends Activity {
         actions.add(() -> {
             if (webView != null && webView.canGoForward()) webView.goForward();
         });
+        if (!homePage && webView != null) {
+            labels.add(getString(R.string.menu_find));
+            actions.add(this::showFindBar);
+        }
         labels.add(getString(popupsBlocked
                 ? R.string.popup_block_enabled : R.string.popup_block_disabled));
         actions.add(() -> {
@@ -1676,6 +1807,8 @@ public class MainActivity extends Activity {
             closeMenu();
         } else if (fullscreenView != null) {
             hideFullscreen();
+        } else if (findBarShown()) {
+            closeFindBar();
         } else if (homePage) {
             finish();
         } else if (webView != null && webView.canGoBack()) {
