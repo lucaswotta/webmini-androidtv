@@ -73,4 +73,13 @@
     <string name="favorite_remove">Quitar</string>
     <string name="screen_margin">Margen de pantalla: %1$d%%</string>
     <string name="webview_old">El WebView del sistema está en la versión %1$d. Actualiza Android System WebView para el bloqueo completo de anuncios.</string>
+    <string name="menu_find">Buscar en la página</string>
+    <string name="find_previous">Coincidencia anterior</string>
+    <string name="find_next">Coincidencia siguiente</string>
+    <string name="find_close">Cerrar búsqueda en la página</string>
+    <string name="menu_go_to">Ir a</string>
+    <string name="go_top">Principio</string>
+    <string name="go_screen_up">Una pantalla arriba</string>
+    <string name="go_screen_down">Una pantalla abajo</string>
+    <string name="go_bottom">Final</string>
 </resources>
