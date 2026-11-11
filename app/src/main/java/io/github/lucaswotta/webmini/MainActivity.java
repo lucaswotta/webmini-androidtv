@@ -53,38 +53,18 @@ import android.text.style.TextAppearanceSpan;
 import android.widget.ScrollView;
 import org.json.JSONArray;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.io.ByteArrayInputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.net.URLEncoder;
 import java.util.Locale;
 import java.util.ArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class MainActivity extends Activity {
-    static {
-        System.loadLibrary("webmini_adblock");
-    }
-
     private static final String HOME = "https://www.google.com/";
     private static final String ABOUT = "https://github.com/lucaswotta/webmini-androidtv";
     private static final String BLANK = "about:blank";
     private static final String FAVORITES_KEY = "favorites";
     // Two rows of two buttons fit the 720p TV viewport; a third row is clipped.
     private static final int MAX_FAVORITES = 4;
-    private static final String EASYLIST_URL = "https://easylist.to/easylist/easylist.txt";
-    private static final String EASYPRIVACY_URL = "https://easylist.to/easylist/easyprivacy.txt";
-    private static final String[] FILTER_LIST_FILES =
-            {"easylist.txt", "easyprivacy.txt", "easylist-regional.txt"};
-    private static final int REGIONAL_LIST = 2;
     private static final int VOICE_REQUEST = 7;
     private static final String[][] SEARCH_ENGINES = {
             {"Google", "https://www.google.com/search?q="},
@@ -92,7 +72,6 @@ public class MainActivity extends Activity {
             {"Bing", "https://www.bing.com/search?q="},
             {"Brave", "https://search.brave.com/search?q="},
     };
-    private static final int MAX_FILTER_LIST_BYTES = 5 * 1024 * 1024;
     private static final byte[] EMPTY_BODY = new byte[0];
     private static final String[] AD_HOSTS = {
             "doubleclick.net", "googlesyndication.com", "googleadservices.com",
@@ -131,7 +110,7 @@ public class MainActivity extends Activity {
     private static final long CURSOR_IDLE_MS = 2500;
     private View fullscreenView;
     private WebChromeClient.CustomViewCallback fullscreenCallback;
-    private volatile boolean adBlockEnabled;
+    private FilterEngine filterEngine;
     private boolean popupsBlocked;
     private boolean navigationErrorShown;
     private String pendingDownloadUrl;
@@ -147,15 +126,25 @@ public class MainActivity extends Activity {
     private int digitalY;
     private int digitalSpeed = 6;
     private boolean cursorTickScheduled;
-    private volatile String currentUrl = HOME;
-    private volatile boolean nativeFiltersReady;
-    // False while the engine was built without EasyList or EasyPrivacy.
-    private volatile boolean nativeFiltersComplete;
-    // The native engine is process-wide; only the newest Activity may replace or clear it.
-    private static final java.util.concurrent.atomic.AtomicInteger ENGINE_OWNER =
-            new java.util.concurrent.atomic.AtomicInteger();
-    private static final Object ENGINE_LOCK = new Object();
-    private int engineOwner;
+    private String currentUrl = HOME;
+    // Snapshot read once per request on WebView's network threads, so a request never mixes
+    // the URL of one navigation with the origin or the exemption of another.
+    private static final class PageContext {
+        final String url;
+        final boolean exempt;
+
+        PageContext(String url, boolean exempt) {
+            this.url = url;
+            this.exempt = exempt;
+        }
+    }
+    private volatile PageContext pageContext = new PageContext(HOME, false);
+    // First navigation waiting for the filter engine, so it is not loaded unfiltered.
+    private String heldUrl;
+    private static final long FILTER_WAIT_MS = 6000;
+    private final Runnable releaseHeldNavigation = () -> loadHeldNavigation(true);
+    private int restoredScrollY;
+    private int nightMode;
     private static final String DESKTOP_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) "
             + "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
     private final java.util.concurrent.atomic.AtomicInteger blockedCount =
@@ -164,15 +153,12 @@ public class MainActivity extends Activity {
     private int textZoom = 100;
     private final java.util.Set<String> exemptOrigins =
             java.util.Collections.synchronizedSet(new java.util.HashSet<>());
-    private final ExecutorService adBlockExecutor = Executors.newSingleThreadExecutor();
-    private boolean adBlockInitializationRunning;
-    private boolean adBlockReloadRequested;
     private final Runnable hideLoading = () -> loadingLine.setVisibility(View.INVISIBLE);
     private final Runnable cursorTick = new Runnable() {
         @Override
         public void run() {
             cursorTickScheduled = false;
-            if (!tvMode || (analogX == 0 && analogY == 0
+            if (!tvMode || homePage || menuPanel != null || (analogX == 0 && analogY == 0
                     && digitalX == 0 && digitalY == 0)) return;
             revealCursor();
             moveCursorPixels(dp(6) * analogX + dp(digitalSpeed) * digitalX,
@@ -181,20 +167,16 @@ public class MainActivity extends Activity {
         }
     };
 
-    private static native void nativeBeginFilterLists();
-    private static native boolean nativeAddFilterList(String listText);
-    private static native boolean nativeFinishFilterLists();
-    private static native void nativeClearFilters();
-    private static native boolean nativeShouldBlock(String url, String pageUrl,
-            String resourceType, String method);
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         tvMode = getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
         if (tvMode) setTheme(R.style.TvTheme);
         super.onCreate(savedInstanceState);
-        engineOwner = ENGINE_OWNER.incrementAndGet();
-        adBlockEnabled = getPreferences(MODE_PRIVATE).getBoolean("adBlockEnabled", true);
+        nightMode = getResources().getConfiguration().uiMode
+                & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        filterEngine = new FilterEngine(getFilesDir(), getPreferences(MODE_PRIVATE),
+                installTime(), () -> runOnUiThread(() -> loadHeldNavigation(false)));
+        filterEngine.setEnabled(getPreferences(MODE_PRIVATE).getBoolean("adBlockEnabled", true));
         popupsBlocked = getPreferences(MODE_PRIVATE).getBoolean("popupsBlocked", true);
         desktopSite = getPreferences(MODE_PRIVATE).getBoolean("desktopSite", false);
         int savedZoom = getPreferences(MODE_PRIVATE).getInt("textZoom", 100);
@@ -299,7 +281,8 @@ public class MainActivity extends Activity {
 
         String launchUrl = savedInstanceState == null ? incomingUrl(getIntent())
                 : savedInstanceState.getString("url");
-        currentUrl = launchUrl == null ? HOME : launchUrl;
+        setCurrentUrl(launchUrl == null ? HOME : launchUrl);
+        if (savedInstanceState != null) restoredScrollY = savedInstanceState.getInt("scrollY");
         if (launchUrl == null || (savedInstanceState != null
                 && savedInstanceState.getBoolean("homePage"))) {
             showHomePage();
@@ -310,7 +293,21 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 33) {
             getOnBackInvokedDispatcher().registerOnBackInvokedCallback(0, this::navigateBack);
         }
-        if (adBlockEnabled) initializeAdblock();
+    }
+
+    // Changes on every install or update, which is when a compiled engine may be stale.
+    private long installTime() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).lastUpdateTime;
+        } catch (PackageManager.NameNotFoundException error) {
+            throw new AssertionError(error);
+        }
+    }
+
+    private void setCurrentUrl(String url) {
+        currentUrl = url;
+        String origin = NavigationPolicy.origin(url);
+        pageContext = new PageContext(url, origin != null && exemptOrigins.contains(origin));
     }
 
     private Button button(String label, LinearLayout parent) {
@@ -374,8 +371,13 @@ public class MainActivity extends Activity {
             webView = null;
         }
         homePage = true;
+        heldUrl = null;
+        root.removeCallbacks(releaseHeldNavigation);
+        loadingLine.removeCallbacks(hideLoading);
+        loadingLine.setVisibility(View.INVISIBLE);
+        stopPointer();
         if (address.isFocused()) address.clearFocus();
-        currentUrl = HOME;
+        setCurrentUrl(HOME);
         address.setText("");
         favoriteButton.setText("☆");
         favoriteButton.setEnabled(false);
@@ -615,11 +617,34 @@ public class MainActivity extends Activity {
     }
 
     private void loadConfirmedUrl(String url) {
+        root.removeCallbacks(releaseHeldNavigation);
+        if (filterEngine.isEnabled() && !filterEngine.isReady() && filterEngine.isLoading()) {
+            heldUrl = url;
+            address.setText(url);
+            showLoading();
+            Toast.makeText(this, R.string.filter_preparing, Toast.LENGTH_SHORT).show();
+            root.postDelayed(releaseHeldNavigation, FILTER_WAIT_MS);
+            return;
+        }
+        heldUrl = null;
         if (webView == null) createWebView(url);
         else {
             showLoading();
             webView.loadUrl(url);
         }
+    }
+
+    private void loadHeldNavigation(boolean timedOut) {
+        if (heldUrl == null || isFinishing() || isDestroyed()) return;
+        if (!timedOut && !filterEngine.isReady() && filterEngine.isLoading()) return;
+        String url = heldUrl;
+        heldUrl = null;
+        root.removeCallbacks(releaseHeldNavigation);
+        if (filterEngine.isEnabled() && !filterEngine.isReady()) {
+            Toast.makeText(this, R.string.filter_not_ready, Toast.LENGTH_LONG).show();
+        }
+        if (webView == null) createWebView(url);
+        else webView.loadUrl(url);
     }
 
     private boolean needsHttpWarning(String url) {
@@ -773,7 +798,7 @@ public class MainActivity extends Activity {
                 if (view == webView && !BLANK.equals(pageUrl)) {
                     navigationErrorShown = false;
                     blockedCount.set(0);
-                    currentUrl = pageUrl;
+                    setCurrentUrl(pageUrl);
                     if (loadingLine.getVisibility() != View.VISIBLE) showLoading();
                 }
                 if (view == webView && tvMode) view.requestFocus();
@@ -782,9 +807,20 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String pageUrl) {
                 if (view == webView && !pageUrl.equals(BLANK)) {
-                    currentUrl = pageUrl;
+                    setCurrentUrl(pageUrl);
                     address.setText(pageUrl);
                     updateFavoriteButton();
+                    if (restoredScrollY > 0) {
+                        int scrollY = restoredScrollY;
+                        restoredScrollY = 0;
+                        // The page has no height to scroll until its first frame is drawn.
+                        view.postVisualStateCallback(0, new WebView.VisualStateCallback() {
+                            @Override
+                            public void onComplete(long requestId) {
+                                if (view == webView) view.scrollTo(0, scrollY);
+                            }
+                        });
+                    }
                 }
                 if (view == webView) {
                     loadingLine.removeCallbacks(hideLoading);
@@ -805,24 +841,19 @@ public class MainActivity extends Activity {
                 createWebView(BLANK);
                 address.setText(currentUrl);
                 Toast.makeText(MainActivity.this, R.string.page_stopped, Toast.LENGTH_LONG).show();
-                showNavigationError(webView, false);
+                String stoppedUrl = currentUrl;
+                showNavigationError(webView, () -> loadConfirmedUrl(stoppedUrl));
                 return true;
             }
 
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request,
                                         WebResourceError error) {
+                // Only transport failures land here. An HTTP error status comes with the
+                // server's own document, which stays on screen.
                 if (request.isForMainFrame()) {
-                    showNavigationError(view, "GET".equalsIgnoreCase(request.getMethod()));
-                }
-            }
-
-            @Override
-            public void onReceivedHttpError(WebView view, WebResourceRequest request,
-                                            WebResourceResponse response) {
-                int status = response.getStatusCode();
-                if (request.isForMainFrame() && status >= 400 && status != 401 && status != 407) {
-                    showNavigationError(view, "GET".equalsIgnoreCase(request.getMethod()));
+                    showNavigationError(view, "GET".equalsIgnoreCase(request.getMethod())
+                            ? MainActivity.this::reloadPage : null);
                 }
             }
         });
@@ -830,8 +861,9 @@ public class MainActivity extends Activity {
             @Override
             public void onProgressChanged(WebView view, int progress) {
                 if (view != webView || loadingLine.getVisibility() != View.VISIBLE) return;
-                loadingLine.animate().scaleX(Math.max(0.2f, progress / 100f))
-                        .setDuration(150).start();
+                // A new animation per progress step would restart on every callback.
+                loadingLine.animate().cancel();
+                loadingLine.setScaleX(Math.max(0.2f, progress / 100f));
             }
 
             @Override
@@ -908,7 +940,8 @@ public class MainActivity extends Activity {
         webView.loadUrl(url);
     }
 
-    private void showNavigationError(WebView failedView, boolean canRetry) {
+    private void showNavigationError(WebView failedView, Runnable retry) {
+        boolean canRetry = retry != null;
         String failedUrl = currentUrl;
         failedView.post(() -> {
             if (failedView != webView || isFinishing() || isDestroyed()
@@ -923,7 +956,7 @@ public class MainActivity extends Activity {
                     : new String[]{getString(R.string.edit_address), getString(R.string.nav_home)};
             showChoices(actions, which -> {
                 if (failedView != webView || !failedUrl.equals(currentUrl)) return;
-                if (canRetry && which == 0) reloadPage();
+                if (canRetry && which == 0) retry.run();
                 else if (which == (canRetry ? 1 : 0)) {
                     address.setText(failedUrl);
                     address.requestFocus();
@@ -1215,18 +1248,18 @@ public class MainActivity extends Activity {
     }
 
     private int adBlockStateLabel() {
-        if (!adBlockEnabled) return R.string.tracker_block_disabled;
-        if (nativeFiltersReady && nativeFiltersComplete) return R.string.tracker_block_enabled;
-        synchronized (this) {
-            return adBlockInitializationRunning
-                    ? R.string.tracker_block_loading : R.string.tracker_block_reduced;
+        if (!filterEngine.isEnabled()) return R.string.tracker_block_disabled;
+        if (filterEngine.isReady() && filterEngine.isComplete()) {
+            return R.string.tracker_block_enabled;
         }
+        return filterEngine.isLoading()
+                ? R.string.tracker_block_loading : R.string.tracker_block_reduced;
     }
 
     private void showMenu() {
         String adBlockLabel = getString(adBlockStateLabel());
         int blocked = blockedCount.get();
-        if (adBlockEnabled && blocked > 0 && !homePage) adBlockLabel += " (" + blocked + ")";
+        if (filterEngine.isEnabled() && blocked > 0 && !homePage) adBlockLabel += " (" + blocked + ")";
         ArrayList<String> labels = new ArrayList<>();
         ArrayList<Runnable> actions = new ArrayList<>();
         labels.add(getString(R.string.menu_forward));
@@ -1289,7 +1322,7 @@ public class MainActivity extends Activity {
 
     private void adBlockMenu() {
         String origin = NavigationPolicy.origin(currentUrl);
-        boolean siteMenu = adBlockEnabled && !homePage && origin != null;
+        boolean siteMenu = filterEngine.isEnabled() && !homePage && origin != null;
         ArrayList<String> labels = new ArrayList<>();
         ArrayList<Runnable> actions = new ArrayList<>();
         labels.add(getString(adBlockStateLabel()));
@@ -1301,6 +1334,7 @@ public class MainActivity extends Activity {
             actions.add(() -> {
                 if (exempt) exemptOrigins.remove(origin);
                 else exemptOrigins.add(origin);
+                setCurrentUrl(currentUrl);
                 reloadPage();
             });
         }
@@ -1310,27 +1344,14 @@ public class MainActivity extends Activity {
     }
 
     private void toggleAdBlock() {
-        adBlockEnabled = !adBlockEnabled;
-        getPreferences(MODE_PRIVATE).edit().putBoolean("adBlockEnabled", adBlockEnabled).apply();
-        if (adBlockEnabled) {
-            initializeAdblock();
-        } else {
-            nativeFiltersReady = false;
-            adBlockExecutor.execute(this::clearEngineIfOwner);
-        }
+        boolean enabled = !filterEngine.isEnabled();
+        getPreferences(MODE_PRIVATE).edit().putBoolean("adBlockEnabled", enabled).apply();
+        filterEngine.setEnabled(enabled);
         if (webView != null) reloadPage();
     }
 
-    private static final String[] REGIONAL_CHOICES = {"auto", "pt", "es", "none"};
-
-    private String regionalChoice() {
-        String saved = getPreferences(MODE_PRIVATE).getString("regionalList", "auto");
-        for (String choice : REGIONAL_CHOICES) if (choice.equals(saved)) return saved;
-        return "auto";
-    }
-
     private String regionalListName() {
-        switch (regionalChoice()) {
+        switch (filterEngine.regionalChoice()) {
             case "pt": return getString(R.string.regional_pt);
             case "es": return getString(R.string.regional_es);
             case "none": return getString(R.string.regional_none);
@@ -1343,8 +1364,8 @@ public class MainActivity extends Activity {
                 getString(R.string.regional_es), getString(R.string.regional_none)};
         showChoices(names, which -> {
             getPreferences(MODE_PRIVATE).edit()
-                    .putString("regionalList", REGIONAL_CHOICES[which]).apply();
-            if (adBlockEnabled) initializeAdblock();
+                    .putString("regionalList", FilterEngine.REGIONAL_CHOICES[which]).apply();
+            filterEngine.load();
         });
     }
 
@@ -1432,198 +1453,17 @@ public class MainActivity extends Activity {
             return new WebResourceResponse("text/plain", "UTF-8", 403, "Blocked",
                     new java.util.HashMap<>(), new ByteArrayInputStream(EMPTY_BODY));
         }
-        if (!adBlockEnabled || request.isForMainFrame()) return null;
-        String pageOrigin = NavigationPolicy.origin(currentUrl);
-        if (pageOrigin != null && exemptOrigins.contains(pageOrigin)) return null;
-        String resourceUrl = request.getUrl().toString();
-        boolean blocked = nativeFiltersReady && nativeShouldBlock(resourceUrl, currentUrl,
-                requestType(request), request.getMethod());
-        if (!blocked && (!nativeFiltersReady || !adBlockEnabled)) {
-            blocked = isAdHost(request.getUrl().getHost());
-        }
+        if (!filterEngine.isEnabled() || request.isForMainFrame()) return null;
+        PageContext context = pageContext;
+        if (context.exempt) return null;
+        boolean blocked = filterEngine.isReady()
+                ? filterEngine.shouldBlock(request.getUrl().toString(), context.url,
+                        requestType(request), request.getMethod())
+                : isAdHost(request.getUrl().getHost());
         if (!blocked) return null;
         blockedCount.incrementAndGet();
         return new WebResourceResponse("text/plain", "UTF-8",
                 new ByteArrayInputStream(EMPTY_BODY));
-    }
-
-    private void initializeAdblock() {
-        synchronized (this) {
-            if (!adBlockEnabled) return;
-            if (adBlockInitializationRunning) {
-                adBlockReloadRequested = true;
-                return;
-            }
-            adBlockInitializationRunning = true;
-        }
-        adBlockExecutor.execute(() -> {
-            try {
-                String[] lists = readCachedFilterLists();
-                boolean hasCachedLists = lists[0] != null || lists[1] != null;
-                if (hasCachedLists && adBlockEnabled) installFilterLists(lists);
-                if (filterListsStale(lists)) updateFilterLists(lists);
-            } finally {
-                boolean retry;
-                synchronized (this) {
-                    adBlockInitializationRunning = false;
-                    retry = adBlockReloadRequested && adBlockEnabled;
-                    adBlockReloadRequested = false;
-                }
-                if (retry) initializeAdblock();
-            }
-        });
-    }
-
-    private String regionalLanguage() {
-        String choice = regionalChoice();
-        if (choice.equals("auto")) return Locale.getDefault().getLanguage();
-        return choice.equals("none") ? "" : choice;
-    }
-
-    private String regionalListUrl() {
-        return FilterLists.regionalUrl(regionalLanguage());
-    }
-
-    private boolean regionalListCached() {
-        return regionalListUrl() != null && regionalLanguage().equals(
-                getPreferences(MODE_PRIVATE).getString("regionalListLanguage", ""));
-    }
-
-    private String[] readCachedFilterLists() {
-        String[] lists = new String[FILTER_LIST_FILES.length];
-        for (int i = 0; i < FILTER_LIST_FILES.length; i++) {
-            if (i == REGIONAL_LIST && !regionalListCached()) continue;
-            File file = new File(getFilesDir(), FILTER_LIST_FILES[i]);
-            if (!file.isFile() || file.length() <= 0 || file.length() > MAX_FILTER_LIST_BYTES) continue;
-            try (InputStream input = new FileInputStream(file);
-                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-                copyLimited(input, output);
-                lists[i] = output.toString(StandardCharsets.UTF_8.name());
-                if (!FilterLists.isValid(lists[i])) lists[i] = null;
-            } catch (IOException ignored) {
-                lists[i] = null;
-            }
-        }
-        return lists;
-    }
-
-    private boolean filterListStale(int index, String[] cachedLists) {
-        if (index == REGIONAL_LIST && regionalListUrl() == null) return false;
-        if (cachedLists[index] == null) return true;
-        long updatedAt = getPreferences(MODE_PRIVATE).getLong("filterListUpdatedAt" + index, 0);
-        return FilterLists.isStale(updatedAt, System.currentTimeMillis());
-    }
-
-    private boolean filterListsStale(String[] cachedLists) {
-        for (int i = 0; i < FILTER_LIST_FILES.length; i++) {
-            if (filterListStale(i, cachedLists)) return true;
-        }
-        return false;
-    }
-
-    private void updateFilterLists(String[] cachedLists) {
-        String regionalLanguage = regionalLanguage();
-        String[] urls = {EASYLIST_URL, EASYPRIVACY_URL, FilterLists.regionalUrl(regionalLanguage)};
-        boolean updated = false;
-        for (int i = 0; i < urls.length; i++) {
-            if (!adBlockEnabled) return;
-            if (urls[i] == null || !filterListStale(i, cachedLists)) continue;
-            String downloaded = downloadFilterList(urls[i]);
-            if (downloaded == null) continue;
-            // The user may have switched region while this list downloaded.
-            if (i == REGIONAL_LIST && !regionalLanguage.equals(regionalLanguage())) continue;
-            // Keep the download in memory even if storage is full.
-            cachedLists[i] = downloaded;
-            updated = true;
-            try {
-                saveFilterList(i, downloaded);
-            } catch (IOException ignored) {
-                continue;
-            }
-            android.content.SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE).edit()
-                    .putLong("filterListUpdatedAt" + i, System.currentTimeMillis());
-            if (i == REGIONAL_LIST) {
-                editor.putString("regionalListLanguage", regionalLanguage);
-            }
-            editor.apply();
-        }
-        if (updated && adBlockEnabled) installFilterLists(cachedLists);
-    }
-
-    private String downloadFilterList(String url) {
-        HttpURLConnection connection = null;
-        try {
-            connection = (HttpURLConnection) new URL(url).openConnection();
-            connection.setConnectTimeout(12000);
-            connection.setReadTimeout(20000);
-            connection.setInstanceFollowRedirects(true);
-            connection.setRequestProperty("User-Agent", "WebMini/1.0 filter-list updater");
-            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK
-                    || !"https".equalsIgnoreCase(connection.getURL().getProtocol())) return null;
-            try (InputStream input = connection.getInputStream();
-                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-                copyLimited(input, output);
-                String contents = output.toString(StandardCharsets.UTF_8.name());
-                return FilterLists.isValid(contents) ? contents : null;
-            }
-        } catch (IOException ignored) {
-            return null;
-        } finally {
-            if (connection != null) connection.disconnect();
-        }
-    }
-
-    private void copyLimited(InputStream input, ByteArrayOutputStream output) throws IOException {
-        byte[] buffer = new byte[8192];
-        int total = 0;
-        int count;
-        while ((count = input.read(buffer)) != -1) {
-            total += count;
-            if (total > MAX_FILTER_LIST_BYTES) throw new IOException("Filter list is too large");
-            output.write(buffer, 0, count);
-        }
-    }
-
-    private void saveFilterList(int index, String contents) throws IOException {
-        File destination = new File(getFilesDir(), FILTER_LIST_FILES[index]);
-        File temporary = new File(getFilesDir(), FILTER_LIST_FILES[index] + ".tmp");
-        byte[] bytes = contents.getBytes(StandardCharsets.UTF_8);
-        if (bytes.length > MAX_FILTER_LIST_BYTES) throw new IOException("Filter list is too large");
-        try (FileOutputStream output = new FileOutputStream(temporary)) {
-            output.write(bytes);
-        }
-        if (!temporary.renameTo(destination)) {
-            temporary.delete();
-            throw new IOException("Could not replace cached filter list");
-        }
-    }
-
-    // The running engine stays active until the new one is built, so a failed
-    // update never leaves the page without the full lists. The lock covers the
-    // begin/add/finish sequence because the native pending set is process-wide.
-    private void installFilterLists(String[] lists) {
-        boolean hasList = false;
-        for (String list : lists) hasList |= list != null && !list.isEmpty();
-        if (!hasList) return;
-        synchronized (ENGINE_LOCK) {
-            if (!adBlockEnabled || engineOwner != ENGINE_OWNER.get()) return;
-            nativeBeginFilterLists();
-            for (String list : lists) {
-                if (list != null && !list.isEmpty() && !nativeAddFilterList(list)) return;
-            }
-            if (adBlockEnabled && engineOwner == ENGINE_OWNER.get()
-                    && nativeFinishFilterLists()) {
-                nativeFiltersComplete = lists[0] != null && lists[1] != null;
-                nativeFiltersReady = true;
-            }
-        }
-    }
-
-    private void clearEngineIfOwner() {
-        synchronized (ENGINE_LOCK) {
-            if (engineOwner != ENGINE_OWNER.get()) return;
-            nativeClearFilters();
-        }
     }
 
     private void showConfirmation(String title, String message, String acceptLabel,
@@ -1663,7 +1503,8 @@ public class MainActivity extends Activity {
                 getString(R.string.action_download), getString(R.string.action_cancel), () -> {
                     pendingDownloadUrl = url;
                     pendingDownloadUserAgent = userAgent;
-                    pendingDownloadReferer = webView == null ? null : webView.getUrl();
+                    pendingDownloadReferer = webView == null ? null
+                            : NavigationPolicy.downloadReferer(webView.getUrl(), url);
                     pendingDownloadName = fileName;
                     pendingDownloadMime = mimeType;
                     startConfirmedDownload();
@@ -1718,6 +1559,7 @@ public class MainActivity extends Activity {
             return;
         }
         if (menuPanel != null) return;
+        stopPointer();
         menuPanel = new FrameLayout(this);
         menuPanel.setBackgroundColor(0x99000000);
         menuPanel.setOnClickListener(view -> closeMenu());
@@ -1855,22 +1697,49 @@ public class MainActivity extends Activity {
     protected void onSaveInstanceState(Bundle state) {
         state.putString("url", currentUrl);
         state.putBoolean("homePage", homePage);
+        state.putInt("scrollY", webView == null ? 0 : webView.getScrollY());
         super.onSaveInstanceState(state);
     }
 
     @Override
     protected void onPause() {
+        stopPointer();
+        if (webView != null) {
+            webView.onPause();
+            webView.pauseTimers();
+        }
+        super.onPause();
+    }
+
+    // A held direction would keep a callback per frame, and scroll the page, after the menu,
+    // the home screen or another window took the keys that would have released it.
+    private void stopPointer() {
         analogX = 0;
         analogY = 0;
         digitalX = 0;
         digitalY = 0;
         if (cursorView != null) cursorView.removeCallbacks(cursorTick);
         cursorTickScheduled = false;
-        if (webView != null) {
-            webView.onPause();
-            webView.pauseTimers();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (!hasFocus) stopPointer();
+    }
+
+    // The manifest keeps the Activity, and the page, alive when a remote, keyboard or display
+    // mode changes; only the native layout that depends on the screen is rebuilt.
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration configuration) {
+        super.onConfigurationChanged(configuration);
+        int night = configuration.uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        if (night != nightMode && !tvMode) {
+            recreate();
+            return;
         }
-        super.onPause();
+        nightMode = night;
+        if (homePage && focusedEditor() == null) showHomePage();
     }
 
     @Override
@@ -1892,7 +1761,7 @@ public class MainActivity extends Activity {
         loadingLine.removeCallbacks(hideLoading);
         closeMenu();
         hideFullscreen();
-        clearWebViewCache();
+        root.removeCallbacks(releaseHeldNavigation);
         if (webView != null) {
             if (webView.getParent() instanceof ViewGroup) {
                 ((ViewGroup) webView.getParent()).removeView(webView);
@@ -1902,15 +1771,10 @@ public class MainActivity extends Activity {
             webView.destroy();
             webView = null;
         }
-        adBlockEnabled = false;
-        nativeFiltersReady = false;
-        if (Build.VERSION.SDK_INT >= 24) {
-            if (engineOwner == ENGINE_OWNER.get()) {
-                ServiceWorkerController.getInstance().setServiceWorkerClient(null);
-            }
+        if (Build.VERSION.SDK_INT >= 24 && filterEngine.isNewest()) {
+            ServiceWorkerController.getInstance().setServiceWorkerClient(null);
         }
-        adBlockExecutor.execute(this::clearEngineIfOwner);
-        adBlockExecutor.shutdown();
+        filterEngine.close();
         super.onDestroy();
     }
 }

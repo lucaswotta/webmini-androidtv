@@ -92,4 +92,23 @@ public class NavigationPolicyTest {
         assertEquals("http://192.168.0.10:8765/x", NavigationPolicy.addressToUrl("192.168.0.10:8765/x", search));
         assertEquals("https://example.com/path?q=1", NavigationPolicy.addressToUrl("example.com/path?q=1", search));
     }
+
+    @Test
+    public void downloadRefererFollowsStrictOriginWhenCrossOrigin() {
+        assertEquals("https://a.example/files?id=7",
+                NavigationPolicy.downloadReferer("https://a.example/files?id=7#top",
+                        "https://a.example/get/file.zip"));
+        assertEquals("https://a.example/",
+                NavigationPolicy.downloadReferer("https://a.example/files?id=7",
+                        "https://cdn.example/file.zip"));
+        assertNull(NavigationPolicy.downloadReferer("https://a.example/files",
+                "http://a.example/file.zip"));
+        assertEquals("http://a.example/",
+                NavigationPolicy.downloadReferer("http://a.example/files",
+                        "https://cdn.example/file.zip"));
+        assertNull(NavigationPolicy.downloadReferer("about:blank", "https://a.example/file.zip"));
+        assertNull(NavigationPolicy.downloadReferer(null, "https://a.example/file.zip"));
+        assertNull(NavigationPolicy.downloadReferer("https://user:pw@a.example/",
+                "https://a.example/file.zip"));
+    }
 }

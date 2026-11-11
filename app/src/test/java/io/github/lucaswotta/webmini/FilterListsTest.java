@@ -26,12 +26,30 @@ public class FilterListsTest {
         assertTrue(FilterLists.isStale(0, 30 * day));
     }
 
+    private static boolean valid(String contents) {
+        byte[] bytes = contents.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return FilterLists.isValid(bytes, Math.min(bytes.length, 64), bytes.length);
+    }
+
     @Test
     public void rejectsErrorPagesAndShortFiles() {
-        StringBuilder valid = new StringBuilder("[Adblock Plus 2.0]\n");
-        while (valid.length() < 300) valid.append("||ads.example.com^\n");
-        assertTrue(FilterLists.isValid(valid.toString()));
-        assertFalse(FilterLists.isValid("<!DOCTYPE html>" + valid));
-        assertFalse(FilterLists.isValid("[Adblock Plus 2.0]\n||a.com^"));
+        StringBuilder list = new StringBuilder("[Adblock Plus 2.0]\n");
+        while (list.length() < 300) list.append("||ads.example.com^\n");
+        assertTrue(valid(list.toString()));
+        assertTrue(valid("\uFEFF\n" + list));
+        assertFalse(valid("<!DOCTYPE html>" + list));
+        assertFalse(valid("[Adblock Plus 2.0]\n||a.com^"));
+    }
+
+    @Test
+    public void engineKeyChangesWithAppVersionAndListFiles() {
+        String[] names = {"easylist.txt", "easyprivacy.txt"};
+        String key = FilterLists.engineKey(5, names, new long[]{10, 20}, new long[]{1, 2});
+        assertEquals(key, FilterLists.engineKey(5, names, new long[]{10, 20}, new long[]{1, 2}));
+        assertFalse(key.equals(FilterLists.engineKey(6, names, new long[]{10, 20}, new long[]{1, 2})));
+        assertFalse(key.equals(FilterLists.engineKey(5, names, new long[]{10, 21}, new long[]{1, 2})));
+        assertFalse(key.equals(FilterLists.engineKey(5, names, new long[]{10, 20}, new long[]{1, 3})));
+        assertFalse(key.equals(FilterLists.engineKey(5, new String[]{"easylist.txt"},
+                new long[]{10}, new long[]{1})));
     }
 }

@@ -11,7 +11,7 @@ adblock = { version = "=0.13.3", default-features = false, features = ["embedded
 jni = "0.21.1"
 
 [profile.release]
-opt-level = "z"
+opt-level = "s"
 lto = true
 codegen-units = 1
 panic = "abort"

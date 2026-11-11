@@ -46,6 +46,19 @@ final class NavigationPolicy {
         return decision;
     }
 
+    // Referer for a download, as strict-origin-when-cross-origin would send it: the page URL
+    // without fragment on the same origin, the origin alone across sites, nothing on a
+    // downgrade to HTTP or when either side is not a web address.
+    static String downloadReferer(String pageUrl, String downloadUrl) {
+        String page = origin(pageUrl);
+        String download = origin(downloadUrl);
+        if (page == null || download == null) return null;
+        if (page.startsWith("https:") && download.startsWith("http:")) return null;
+        if (!page.equals(download)) return page + "/";
+        int fragment = pageUrl.indexOf('#');
+        return fragment < 0 ? pageUrl : pageUrl.substring(0, fragment);
+    }
+
     static String origin(String url) {
         if (url == null) return null;
         try {
