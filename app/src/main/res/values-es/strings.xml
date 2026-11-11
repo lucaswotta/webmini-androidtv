@@ -36,7 +36,7 @@
     <string name="download_http_warning">\n\nEsta conexión no está cifrada.</string>
     <string name="download_details">%1$s\n%2$s\n%3$s%4$s\n\nEl archivo se guardará en Descargas y no se abrirá automáticamente.</string>
     <string name="action_download">Descargar</string>
-    <string name="download_description">Descarga solicitada en WebMini</string>
+    <string name="download_description">Descarga solicitada en OnePage</string>
     <string name="download_started">Descarga iniciada</string>
     <string name="download_permission_denied">Permiso denegado; descarga cancelada</string>
     <string name="favorites_full">Máximo de %d favoritos. Elige cuál reemplazar.</string>

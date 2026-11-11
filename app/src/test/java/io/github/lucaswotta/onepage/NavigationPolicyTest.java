@@ -1,4 +1,4 @@
-package io.github.lucaswotta.webmini;
+package io.github.lucaswotta.onepage;
 
 import org.junit.Test;
 

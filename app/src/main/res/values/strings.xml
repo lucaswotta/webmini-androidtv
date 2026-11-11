@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name" translatable="false">WebMini</string>
+    <string name="app_name" translatable="false">OnePage</string>
     <string name="nav_home">Home</string>
     <string name="nav_back">Back</string>
     <string name="nav_reload">Reload</string>
@@ -37,7 +37,7 @@
     <string name="download_http_warning">\n\nThis connection is not encrypted.</string>
     <string name="download_details">%1$s\n%2$s\n%3$s%4$s\n\nThe file will be saved to Downloads and will not open automatically.</string>
     <string name="action_download">Download</string>
-    <string name="download_description">Download requested in WebMini</string>
+    <string name="download_description">Download requested in OnePage</string>
     <string name="download_started">Download started</string>
     <string name="download_permission_denied">Permission denied; download canceled</string>
     <string name="favorites_full">Up to %d favorites. Choose the one to replace.</string>

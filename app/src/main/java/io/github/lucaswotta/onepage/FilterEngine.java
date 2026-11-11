@@ -1,4 +1,4 @@
-package io.github.lucaswotta.webmini;
+package io.github.lucaswotta.onepage;
 
 import android.content.SharedPreferences;
 
@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 // enters the Java heap: files are downloaded to disk and read by the native side.
 final class FilterEngine {
     static {
-        System.loadLibrary("webmini_adblock");
+        System.loadLibrary("onepage_adblock");
     }
 
     static final String[] REGIONAL_CHOICES = {"auto", "pt", "es", "none"};
@@ -275,7 +275,7 @@ final class FilterEngine {
             connection.setConnectTimeout(12000);
             connection.setReadTimeout(20000);
             connection.setInstanceFollowRedirects(true);
-            connection.setRequestProperty("User-Agent", "WebMini/1.0 filter-list updater");
+            connection.setRequestProperty("User-Agent", "OnePage filter-list updater");
             if (conditional) {
                 String etag = preferences.getString("filterListEtag" + index, null);
                 String modified = preferences.getString("filterListModified" + index, null);

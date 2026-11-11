@@ -1,4 +1,4 @@
-package io.github.lucaswotta.webmini;
+package io.github.lucaswotta.onepage;
 
 final class FilterLists {
     static final long MAX_AGE_MILLIS = 7L * 24 * 60 * 60 * 1000;

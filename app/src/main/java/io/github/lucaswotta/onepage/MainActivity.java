@@ -1,4 +1,4 @@
-package io.github.lucaswotta.webmini;
+package io.github.lucaswotta.onepage;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -60,7 +60,7 @@ import java.util.ArrayList;
 
 public class MainActivity extends Activity {
     private static final String HOME = "https://www.google.com/";
-    private static final String ABOUT = "https://github.com/lucaswotta/webmini-androidtv";
+    private static final String ABOUT = "https://github.com/lucaswotta/onepage";
     private static final String BLANK = "about:blank";
     private static final String FAVORITES_KEY = "favorites";
     // Two rows of two buttons fit the 720p TV viewport; a third row is clipped.

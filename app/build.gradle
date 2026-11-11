@@ -7,16 +7,16 @@ dependencies {
 }
 
 android {
-    namespace 'io.github.lucaswotta.webmini'
+    namespace 'io.github.lucaswotta.onepage'
     compileSdk 36
     ndkVersion '27.2.12479018'
 
     defaultConfig {
-        applicationId 'io.github.lucaswotta.webmini'
+        applicationId 'io.github.lucaswotta.onepage'
         minSdk 23
         targetSdk 36
-        versionCode 4
-        versionName '0.3.1'
+        versionCode 5
+        versionName '0.4.0'
     }
 
     def releaseStoreFile = providers.gradleProperty('webminiStoreFile').orNull

@@ -68,7 +68,7 @@ fn build(list_paths: &[String]) -> Option<Engine> {
 }
 
 #[no_mangle]
-pub extern "system" fn Java_io_github_lucaswotta_webmini_FilterEngine_nativeBuild(
+pub extern "system" fn Java_io_github_lucaswotta_onepage_FilterEngine_nativeBuild(
     mut env: JNIEnv<'_>,
     _class: JClass<'_>,
     list_paths: JObjectArray<'_>,
@@ -106,7 +106,7 @@ pub extern "system" fn Java_io_github_lucaswotta_webmini_FilterEngine_nativeBuil
 }
 
 #[no_mangle]
-pub extern "system" fn Java_io_github_lucaswotta_webmini_FilterEngine_nativeLoad(
+pub extern "system" fn Java_io_github_lucaswotta_onepage_FilterEngine_nativeLoad(
     mut env: JNIEnv<'_>,
     _class: JClass<'_>,
     engine_path: JString<'_>,
@@ -131,7 +131,7 @@ pub extern "system" fn Java_io_github_lucaswotta_webmini_FilterEngine_nativeLoad
 }
 
 #[no_mangle]
-pub extern "system" fn Java_io_github_lucaswotta_webmini_FilterEngine_nativeClear(
+pub extern "system" fn Java_io_github_lucaswotta_onepage_FilterEngine_nativeClear(
     _env: JNIEnv<'_>,
     _class: JClass<'_>,
 ) {
@@ -146,7 +146,7 @@ pub extern "system" fn Java_io_github_lucaswotta_webmini_FilterEngine_nativeClea
 }
 
 #[no_mangle]
-pub extern "system" fn Java_io_github_lucaswotta_webmini_FilterEngine_nativeShouldBlock(
+pub extern "system" fn Java_io_github_lucaswotta_onepage_FilterEngine_nativeShouldBlock(
     mut env: JNIEnv<'_>,
     _class: JClass<'_>,
     url: JString<'_>,

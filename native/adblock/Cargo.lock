@@ -584,7 +584,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "webmini-adblock"
+name = "onepage-adblock"
 version = "0.1.0"
 dependencies = [
  "adblock",

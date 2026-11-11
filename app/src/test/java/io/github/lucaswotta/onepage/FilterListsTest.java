@@ -1,4 +1,4 @@
-package io.github.lucaswotta.webmini;
+package io.github.lucaswotta.onepage;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;

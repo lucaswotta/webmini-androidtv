@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/brand/webmini-mark.svg" alt="OnePage logo" width="112">
+<img src="docs/brand/onepage-mark.svg" alt="OnePage logo" width="112">
 
 # OnePage
 
