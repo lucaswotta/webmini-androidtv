@@ -82,4 +82,5 @@
     <string name="go_screen_up">Uma tela acima</string>
     <string name="go_screen_down">Uma tela abaixo</string>
     <string name="go_bottom">Fim</string>
+    <string name="popup_form_blocked">Um formulário enviado para uma nova janela foi bloqueado.</string>
 </resources>

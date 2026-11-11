@@ -114,6 +114,7 @@ final class FilterEngine {
         }
         executor.execute(() -> {
             try {
+                deleteAbandonedDownloads();
                 install();
                 onSettled.run();
                 if (refreshLists()) install();
@@ -128,6 +129,20 @@ final class FilterEngine {
                 if (retry) load();
             }
         });
+    }
+
+    // A download cut by the process being killed leaves its temporary file behind. Recent
+    // ones may belong to another instance that is still downloading.
+    private void deleteAbandonedDownloads() {
+        File[] files = directory.listFiles();
+        if (files == null) return;
+        long cutoff = System.currentTimeMillis() - 10 * 60 * 1000;
+        for (File file : files) {
+            if (file.getName().endsWith(".tmp") && file.lastModified() < cutoff
+                    && !file.delete()) {
+                file.deleteOnExit();
+            }
+        }
     }
 
     void close() {
@@ -248,7 +263,8 @@ final class FilterEngine {
 
     private boolean downloadList(int index, String url, String language) {
         File destination = listFile(index);
-        File temporary = new File(directory, LIST_FILES[index] + ".tmp");
+        // Two instances can download during an Activity recreation; each keeps its own file.
+        File temporary = new File(directory, LIST_FILES[index] + "." + owner + ".tmp");
         boolean conditional = listUsable(index)
                 && url.equals(preferences.getString("filterListUrl" + index, null));
         HttpURLConnection connection = null;

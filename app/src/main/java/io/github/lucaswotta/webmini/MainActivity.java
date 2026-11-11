@@ -157,6 +157,7 @@ public class MainActivity extends Activity {
     private WebView popupProbe;
     private static final long POPUP_PROBE_MS = 10000;
     private final Runnable popupProbeTimeout = this::discardPopupProbe;
+    private boolean resumed;
     private int restoredScrollY;
     private int nightMode;
     private static final String DESKTOP_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) "
@@ -798,7 +799,8 @@ public class MainActivity extends Activity {
     }
 
     private void loadHeldNavigation(boolean timedOut) {
-        if (heldUrl == null || isFinishing() || isDestroyed()) return;
+        // A page created while the app is in the background would load and run there.
+        if (heldUrl == null || !resumed || isFinishing() || isDestroyed()) return;
         if (!timedOut && !filterEngine.isReady() && filterEngine.isLoading()) return;
         String url = heldUrl;
         heldUrl = null;
@@ -839,9 +841,11 @@ public class MainActivity extends Activity {
         if (!request.isForMainFrame() || request.hasGesture()) return false;
         PageContext context = pageContext;
         String url = request.getUrl().toString();
+        // List rules skip the "document" type unless they name it, so the destination is
+        // judged as the frame it would be if the page had embedded it.
         return !context.exempt && NavigationPolicy.isCrossSite(context.url, url)
                 && filterEngine.isEnabled() && filterEngine.isReady()
-                && filterEngine.shouldBlock(url, context.url, "document", "GET");
+                && filterEngine.shouldBlock(url, context.url, "subdocument", "GET");
     }
 
     private void loadFavorites() {
@@ -1175,12 +1179,39 @@ public class MainActivity extends Activity {
         probe.getSettings().setJavaScriptEnabled(false);
         probe.setWebViewClient(new WebViewClient() {
             // Nothing is fetched for the hidden window, so the destination sets no cookie
-            // and runs nothing before the user decides.
+            // and runs nothing before the user decides. A URL given straight to window.open
+            // loads without asking for an override, and only this request tells a form
+            // submission from a link: reopening a POST as GET would drop what was sent.
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view,
                                                                WebResourceRequest request) {
+                if (request.isForMainFrame()) {
+                    String url = request.getUrl().toString();
+                    if ("GET".equalsIgnoreCase(request.getMethod())) {
+                        takePopupDestination(view, url);
+                    } else {
+                        root.post(() -> {
+                            if (view != popupProbe) return;
+                            discardPopupProbe();
+                            Toast.makeText(MainActivity.this, R.string.popup_form_blocked,
+                                    Toast.LENGTH_LONG).show();
+                        });
+                    }
+                }
                 return new WebResourceResponse("text/plain", "UTF-8",
                         new ByteArrayInputStream(EMPTY_BODY));
+            }
+
+            // Without this the default handler ends the whole app when the hidden
+            // window's renderer dies.
+            @Override
+            public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                if (view == popupProbe) {
+                    root.removeCallbacks(popupProbeTimeout);
+                    popupProbe = null;
+                }
+                view.destroy();
+                return true;
             }
 
             @Override
@@ -1194,13 +1225,6 @@ public class MainActivity extends Activity {
                 takePopupDestination(view, url);
                 return true;
             }
-
-            // A URL given straight to window.open may load without asking for an override.
-            @Override
-            public void onPageStarted(WebView view, String pageUrl,
-                                      android.graphics.Bitmap favicon) {
-                takePopupDestination(view, pageUrl);
-            }
         });
         return probe;
     }
@@ -1208,8 +1232,9 @@ public class MainActivity extends Activity {
     // Pages often open about:blank first and set the address afterwards, so the blank
     // document is skipped and the probe waits for the next URL or the timeout.
     private void takePopupDestination(WebView probe, String url) {
-        if (probe != popupProbe || url == null || BLANK.equals(url)) return;
-        // A WebView destroyed from inside its own callback can crash, so this runs after it.
+        if (url == null || BLANK.equals(url)) return;
+        // Called from WebView's network thread too, and a WebView destroyed from inside its
+        // own callback can crash, so the rest runs later on the UI thread.
         root.post(() -> {
             if (probe != popupProbe) return;
             discardPopupProbe();
@@ -2114,14 +2139,15 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onSaveInstanceState(Bundle state) {
-        state.putString("url", currentUrl);
-        state.putBoolean("homePage", homePage);
+        state.putString("url", heldUrl != null ? heldUrl : currentUrl);
+        state.putBoolean("homePage", homePage && heldUrl == null);
         state.putInt("scrollY", webView == null ? 0 : webView.getScrollY());
         super.onSaveInstanceState(state);
     }
 
     @Override
     protected void onPause() {
+        resumed = false;
         stopPointer();
         if (webView != null) {
             webView.onPause();
@@ -2165,6 +2191,12 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        resumed = true;
+        if (heldUrl != null) {
+            root.removeCallbacks(releaseHeldNavigation);
+            root.postDelayed(releaseHeldNavigation, FILTER_WAIT_MS);
+            loadHeldNavigation(false);
+        }
         if (webView != null) {
             webView.resumeTimers();
             webView.onResume();
