@@ -68,4 +68,9 @@
     <string name="text_size">Text size: %1$d%%</string>
     <string name="filter_preparing">Preparing ad blocking…</string>
     <string name="filter_not_ready">Ad blocking is still loading. This page has reduced blocking.</string>
+    <string name="favorite_move_earlier">Move earlier</string>
+    <string name="favorite_move_later">Move later</string>
+    <string name="favorite_remove">Remove</string>
+    <string name="screen_margin">Screen margin: %1$d%%</string>
+    <string name="webview_old">The system WebView is version %1$d. Update Android System WebView for full ad blocking.</string>
 </resources>

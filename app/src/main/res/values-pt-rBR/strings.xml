@@ -67,4 +67,9 @@
     <string name="text_size">Tamanho do texto: %1$d%%</string>
     <string name="filter_preparing">Preparando o bloqueio de anúncios…</string>
     <string name="filter_not_ready">O bloqueio de anúncios ainda está carregando. Esta página tem bloqueio reduzido.</string>
+    <string name="favorite_move_earlier">Mover para antes</string>
+    <string name="favorite_move_later">Mover para depois</string>
+    <string name="favorite_remove">Remover</string>
+    <string name="screen_margin">Margem da tela: %1$d%%</string>
+    <string name="webview_old">O WebView do sistema está na versão %1$d. Atualize o Android System WebView para o bloqueio completo de anúncios.</string>
 </resources>

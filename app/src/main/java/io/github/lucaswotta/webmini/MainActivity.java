@@ -93,6 +93,12 @@ public class MainActivity extends Activity {
     private Button favoriteButton;
     private EditText homeSearch;
     private final ArrayList<String> favorites = new ArrayList<>();
+    private final java.util.HashMap<String, String> favoriteTitles = new java.util.HashMap<>();
+    private FrameLayout frame;
+    private int overscanPercent;
+    // Sec-Fetch-Dest, which tells the filter what kind of resource is requested, exists
+    // from Chromium 80; older WebViews classify requests by guesswork.
+    private static final int MIN_WEBVIEW_MAJOR = 80;
     private boolean homePage;
     private boolean tvMode;
     private LinearLayout toolbarView;
@@ -181,6 +187,9 @@ public class MainActivity extends Activity {
         desktopSite = getPreferences(MODE_PRIVATE).getBoolean("desktopSite", false);
         int savedZoom = getPreferences(MODE_PRIVATE).getInt("textZoom", 100);
         textZoom = savedZoom == 125 || savedZoom == 150 ? savedZoom : 100;
+        int savedOverscan = getPreferences(MODE_PRIVATE).getInt("overscanPercent", 0);
+        overscanPercent = savedOverscan == 2 || savedOverscan == 4 || savedOverscan == 6
+                ? savedOverscan : 0;
         loadFavorites();
 
         root = new FrameLayout(this);
@@ -276,7 +285,11 @@ public class MainActivity extends Activity {
         }
         content = new FrameLayout(this);
         page.addView(content, new LinearLayout.LayoutParams(-1, 0, 1));
-        setContentView(root);
+        frame = new FrameLayout(this);
+        if (tvMode) frame.setBackgroundColor(Color.BLACK);
+        frame.addView(root, new FrameLayout.LayoutParams(-1, -1));
+        applyOverscan();
+        setContentView(frame);
         if (tvMode) createCursor();
 
         String launchUrl = savedInstanceState == null ? incomingUrl(getIntent())
@@ -302,6 +315,46 @@ public class MainActivity extends Activity {
         } catch (PackageManager.NameNotFoundException error) {
             throw new AssertionError(error);
         }
+    }
+
+    // Some TVs crop the picture edges; the margin pulls the whole interface inward.
+    private void applyOverscan() {
+        android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
+        int horizontal = metrics.widthPixels * overscanPercent / 100;
+        int vertical = metrics.heightPixels * overscanPercent / 100;
+        frame.setPadding(horizontal, vertical, horizontal, vertical);
+    }
+
+    private int webViewMajorVersion() {
+        android.content.pm.PackageInfo provider = null;
+        if (Build.VERSION.SDK_INT >= 26) {
+            provider = WebView.getCurrentWebViewPackage();
+        } else {
+            // No API names the active provider before API 26; these are the two stock ones.
+            for (String name : new String[]{"com.google.android.webview", "com.android.webview"}) {
+                try {
+                    provider = getPackageManager().getPackageInfo(name, 0);
+                    break;
+                } catch (PackageManager.NameNotFoundException ignored) {
+                    // Try the next provider.
+                }
+            }
+        }
+        if (provider == null || provider.versionName == null) return -1;
+        try {
+            return Integer.parseInt(provider.versionName.split("\\.", 2)[0]);
+        } catch (NumberFormatException error) {
+            return -1;
+        }
+    }
+
+    // Shown once per WebView version, so it returns only after an update that is still old.
+    private void warnOldWebView() {
+        int major = webViewMajorVersion();
+        if (major < 0 || major >= MIN_WEBVIEW_MAJOR
+                || major == getPreferences(MODE_PRIVATE).getInt("webViewNotice", -1)) return;
+        getPreferences(MODE_PRIVATE).edit().putInt("webViewNotice", major).apply();
+        Toast.makeText(this, getString(R.string.webview_old, major), Toast.LENGTH_LONG).show();
     }
 
     private void setCurrentUrl(String url) {
@@ -495,8 +548,10 @@ public class MainActivity extends Activity {
                 for (int slot = i; slot < Math.min(i + 2, shownFavorites); slot++) {
                     String url = favorites.get(slot);
                     Button item = new Button(this);
-                    String host = Uri.parse(url).getHost();
-                    String displayHost = host == null ? url : host;
+                    String savedTitle = favoriteTitles.get(url);
+                    String host = savedTitle == null ? Uri.parse(url).getHost() : null;
+                    String displayHost = savedTitle != null ? savedTitle
+                            : host == null ? url : host;
                     String prefix = tvMode ? String.format(Locale.ROOT, "%02d   ", slot + 1) : "";
                     SpannableString destination = new SpannableString(prefix + displayHost);
                     android.content.res.ColorStateList secondary = getResources()
@@ -534,6 +589,11 @@ public class MainActivity extends Activity {
                     itemSize.setMargins(dp(4), dp(4), dp(4), dp(4));
                     row.addView(item, itemSize);
                     item.setOnClickListener(view -> navigateTo(url));
+                    int position = slot;
+                    item.setOnLongClickListener(view -> {
+                        manageFavorite(position);
+                        return true;
+                    });
                 }
             }
         }
@@ -675,9 +735,13 @@ public class MainActivity extends Activity {
         try {
             JSONArray urls = new JSONArray(saved);
             for (int i = 0; i < urls.length(); i++) {
-                String url = urls.optString(i);
+                // 0.3.x and earlier stored plain URLs; later versions store the title too.
+                org.json.JSONObject entry = urls.optJSONObject(i);
+                String url = entry == null ? urls.optString(i) : entry.optString("url");
                 if (url.startsWith("https://") || url.startsWith("http://")) {
                     favorites.add(url);
+                    String title = entry == null ? "" : entry.optString("title").trim();
+                    if (!title.isEmpty()) favoriteTitles.put(url, title);
                 }
             }
         } catch (org.json.JSONException ignored) {
@@ -687,12 +751,27 @@ public class MainActivity extends Activity {
 
     private void persistFavorites() {
         JSONArray urls = new JSONArray();
-        for (String url : favorites) urls.put(url);
+        favoriteTitles.keySet().retainAll(favorites);
+        try {
+            for (String url : favorites) {
+                org.json.JSONObject entry = new org.json.JSONObject().put("url", url);
+                String title = favoriteTitles.get(url);
+                if (title != null) entry.put("title", title);
+                urls.put(entry);
+            }
+        } catch (org.json.JSONException error) {
+            throw new AssertionError(error);
+        }
         getPreferences(MODE_PRIVATE).edit().putString(FAVORITES_KEY, urls.toString()).apply();
     }
 
     private void toggleFavorite() {
         if (webView == null || currentUrl == null || !currentUrl.startsWith("http")) return;
+        String pageTitle = webView.getTitle();
+        if (pageTitle != null && !pageTitle.trim().isEmpty() && !pageTitle.equals(currentUrl)
+                && !favorites.contains(currentUrl)) {
+            favoriteTitles.put(currentUrl, pageTitle.trim());
+        }
         if (favorites.contains(currentUrl)) {
             favorites.remove(currentUrl);
         } else if (favorites.size() >= MAX_FAVORITES) {
@@ -711,8 +790,45 @@ public class MainActivity extends Activity {
     }
 
     private void chooseFavorite(String title, Choice choice) {
-        String[] entries = favorites.toArray(new String[0]);
+        String[] entries = new String[favorites.size()];
+        for (int i = 0; i < entries.length; i++) {
+            String saved = favoriteTitles.get(favorites.get(i));
+            entries[i] = saved == null ? favorites.get(i) : saved;
+        }
         showChoices(title, entries, choice);
+    }
+
+    // Opened by holding OK on a favorite, so the grid can be arranged with the remote alone.
+    private void manageFavorite(int position) {
+        if (position >= favorites.size()) return;
+        String url = favorites.get(position);
+        ArrayList<String> labels = new ArrayList<>();
+        ArrayList<Runnable> actions = new ArrayList<>();
+        labels.add(getString(R.string.action_open));
+        actions.add(() -> navigateTo(url));
+        if (position > 0) {
+            labels.add(getString(R.string.favorite_move_earlier));
+            actions.add(() -> moveFavorite(position, position - 1));
+        }
+        if (position < Math.min(favorites.size(), MAX_FAVORITES) - 1) {
+            labels.add(getString(R.string.favorite_move_later));
+            actions.add(() -> moveFavorite(position, position + 1));
+        }
+        labels.add(getString(R.string.favorite_remove));
+        actions.add(() -> {
+            favorites.remove(position);
+            persistFavorites();
+            showHomePage();
+        });
+        String saved = favoriteTitles.get(url);
+        showChoices(saved == null ? url : saved, labels.toArray(new String[0]),
+                which -> actions.get(which).run());
+    }
+
+    private void moveFavorite(int from, int to) {
+        favorites.add(to, favorites.remove(from));
+        persistFavorites();
+        showHomePage();
     }
 
     private void removeFavorite() {
@@ -752,6 +868,7 @@ public class MainActivity extends Activity {
     }
 
     private void createWebView(String url) {
+        warnOldWebView();
         content.removeAllViews();
         navigationErrorShown = false;
         webView = new WebView(this);
@@ -1292,7 +1409,8 @@ public class MainActivity extends Activity {
         String[] entries = {
                 getString(R.string.menu_search_engine, SEARCH_ENGINES[searchEngineIndex()][0]),
                 getString(desktopSite ? R.string.desktop_site_on : R.string.desktop_site_off),
-                getString(R.string.text_size, textZoom)};
+                getString(R.string.text_size, textZoom),
+                getString(R.string.screen_margin, overscanPercent)};
         showChoices(entries, which -> {
             if (which == 0) chooseSearchEngine();
             if (which == 1) {
@@ -1307,6 +1425,12 @@ public class MainActivity extends Activity {
                 textZoom = textZoom >= 150 ? 100 : textZoom + 25;
                 getPreferences(MODE_PRIVATE).edit().putInt("textZoom", textZoom).apply();
                 if (webView != null) applyViewSettings(webView.getSettings());
+            }
+            if (which == 3) {
+                overscanPercent = overscanPercent >= 6 ? 0 : overscanPercent + 2;
+                getPreferences(MODE_PRIVATE).edit().putInt("overscanPercent", overscanPercent)
+                        .apply();
+                applyOverscan();
             }
         });
     }
@@ -1739,6 +1863,7 @@ public class MainActivity extends Activity {
             return;
         }
         nightMode = night;
+        applyOverscan();
         if (homePage && focusedEditor() == null) showHomePage();
     }
 
