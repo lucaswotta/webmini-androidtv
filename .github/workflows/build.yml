@@ -39,11 +39,11 @@ jobs:
               *) echo "unexpected APK $apk"; exit 1 ;;
             esac
             for abi in $abis; do
-              unzip -l "$apk" | grep -q "lib/$abi/libwebmini_adblock.so" \
+              unzip -l "$apk" | grep -q "lib/$abi/libonepage_adblock.so" \
                 || { echo "$apk is missing the $abi library"; exit 1; }
             done
           done
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
-          name: webmini-debug-apks
+          name: onepage-debug-apks
           path: app/build/outputs/apk/debug/*.apk
