@@ -1,5 +1,5 @@
 name: Device report
-description: Tell us how WebMini runs on your TV or device.
+description: Tell us how OnePage runs on your TV or device.
 labels: ["device report"]
 body:
   - type: input
@@ -21,17 +21,17 @@ body:
     attributes:
       label: APK installed
       options:
-        - WebMini-universal.apk
-        - WebMini-armeabi-v7a.apk
-        - WebMini-arm64-v8a.apk
-        - WebMini-x86_64.apk
+        - OnePage-universal.apk
+        - OnePage-armeabi-v7a.apk
+        - OnePage-arm64-v8a.apk
+        - OnePage-x86_64.apk
     validations:
       required: true
   - type: input
     id: version
     attributes:
-      label: WebMini version
-      placeholder: 0.2.0
+      label: OnePage version
+      placeholder: 0.4.0
     validations:
       required: true
   - type: checkboxes
