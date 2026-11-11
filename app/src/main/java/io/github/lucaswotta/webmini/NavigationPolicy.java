@@ -59,6 +59,32 @@ final class NavigationPolicy {
         return fragment < 0 ? pageUrl : pageUrl.substring(0, fragment);
     }
 
+    // Without a public suffix list, two hosts count as the same site when one contains the
+    // other or they end in the same two labels. That over-merges hosts under suffixes like
+    // co.uk, which only means fewer navigations are checked, never that a login is cut.
+    static boolean isCrossSite(String fromUrl, String toUrl) {
+        String from = host(fromUrl);
+        String to = host(toUrl);
+        if (from == null || to == null || from.equals(to)) return false;
+        if (from.endsWith("." + to) || to.endsWith("." + from)) return false;
+        if (from.contains(":") || to.contains(":") || from.matches("[\\d.]+")
+                || to.matches("[\\d.]+")) return true;
+        return !lastLabels(from, 2).equals(lastLabels(to, 2));
+    }
+
+    private static String host(String url) {
+        String origin = origin(url);
+        if (origin == null) return null;
+        String host = URI.create(url).getHost().toLowerCase(Locale.ROOT);
+        return host.endsWith(".") ? host.substring(0, host.length() - 1) : host;
+    }
+
+    private static String lastLabels(String host, int count) {
+        int start = host.length();
+        for (int i = 0; i < count && start > 0; i++) start = host.lastIndexOf('.', start - 1);
+        return host.substring(start + 1);
+    }
+
     static String origin(String url) {
         if (url == null) return null;
         try {

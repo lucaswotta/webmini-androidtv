@@ -669,6 +669,18 @@ public class MainActivity extends Activity {
         return true;
     }
 
+    // The network filter leaves main-frame requests alone, so a script or redirect could
+    // move the tab to an ad without a click. Same-site moves are never checked, which keeps
+    // sign-in hops between subdomains out of the filter's reach.
+    private boolean isAdRedirect(WebResourceRequest request) {
+        if (!request.isForMainFrame() || request.hasGesture()) return false;
+        PageContext context = pageContext;
+        String url = request.getUrl().toString();
+        return !context.exempt && NavigationPolicy.isCrossSite(context.url, url)
+                && filterEngine.isEnabled() && filterEngine.isReady()
+                && filterEngine.shouldBlock(url, context.url, "document", "GET");
+    }
+
     private void loadFavorites() {
         favorites.clear();
         String saved = getPreferences(MODE_PRIVATE).getString(FAVORITES_KEY, "[]");
@@ -778,6 +790,11 @@ public class MainActivity extends Activity {
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                if (isAdRedirect(request)) {
+                    Toast.makeText(MainActivity.this, R.string.navigation_ad_blocked,
+                            Toast.LENGTH_SHORT).show();
+                    return true;
+                }
                 return overrideNavigation(request.getUrl().toString(), request.isForMainFrame(),
                         request.getMethod());
             }

@@ -94,6 +94,32 @@ public class NavigationPolicyTest {
     }
 
     @Test
+    public void treatsSubdomainsAndSharedParentsAsTheSameSite() {
+        assertFalse(NavigationPolicy.isCrossSite("https://accounts.google.com/signin",
+                "https://mail.google.com/"));
+        assertFalse(NavigationPolicy.isCrossSite("https://example.com/", "https://www.example.com/a"));
+        assertFalse(NavigationPolicy.isCrossSite("https://news.example.com/", "http://EXAMPLE.COM./"));
+        assertFalse(NavigationPolicy.isCrossSite("https://example.com/", "https://example.com:8443/"));
+        assertFalse(NavigationPolicy.isCrossSite("https://192.168.0.10/", "http://192.168.0.10:8080/"));
+    }
+
+    @Test
+    public void detectsNavigationToAnotherSite() {
+        assertTrue(NavigationPolicy.isCrossSite("https://example.com/article",
+                "https://ad.doubleclick.net/click"));
+        assertTrue(NavigationPolicy.isCrossSite("https://www.example.com/", "https://example.org/"));
+        assertTrue(NavigationPolicy.isCrossSite("https://192.168.0.10/", "https://10.0.0.10/"));
+        assertTrue(NavigationPolicy.isCrossSite("https://[::1]/", "https://example.com/"));
+    }
+
+    @Test
+    public void neverReportsCrossSiteWhenAnAddressIsNotWeb() {
+        assertFalse(NavigationPolicy.isCrossSite("about:blank", "https://doubleclick.net/"));
+        assertFalse(NavigationPolicy.isCrossSite(null, "https://doubleclick.net/"));
+        assertFalse(NavigationPolicy.isCrossSite("https://example.com/", "intent://x#Intent;end"));
+    }
+
+    @Test
     public void downloadRefererFollowsStrictOriginWhenCrossOrigin() {
         assertEquals("https://a.example/files?id=7",
                 NavigationPolicy.downloadReferer("https://a.example/files?id=7#top",
