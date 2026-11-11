@@ -1,53 +1,102 @@
 <div align="center">
 
-<img src="docs/brand/webmini-mark.svg" alt="WebMini logo" width="112">
+<img src="docs/brand/webmini-mark.svg" alt="OnePage logo" width="112">
 
-# WebMini
+# OnePage
 
-A lightweight, single-tab web browser for Android TV that blocks ads, trackers and pop-ups.
+A single-tab web browser for Android TV that blocks ads, trackers and pop-ups and is driven entirely by the remote.
 
-[![Latest release](https://img.shields.io/github/v/release/lucaswotta/webmini-androidtv?label=release)](https://github.com/lucaswotta/webmini-androidtv/releases/latest)
-[![Build](https://github.com/lucaswotta/webmini-androidtv/actions/workflows/build.yml/badge.svg)](https://github.com/lucaswotta/webmini-androidtv/actions/workflows/build.yml)
-[![Android 6.0+](https://img.shields.io/badge/Android-6.0%2B-3ddc84)](#requirements)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[Português](README.pt-BR.md)
 
-[Download](#install) · [Features](#features) · [Remote control](#remote-control) · [Privacy](#privacy) · [Build](#build) · [Português](README.pt-BR.md)
-
-
-<table>
-<tr>
-<td align="center" width="33%"><a href="https://github.com/lucaswotta/webmini-androidtv/releases/latest/download/WebMini-universal.apk"><img src="https://img.shields.io/badge/Download-APK-3ddc84?style=for-the-badge&logo=android&logoColor=white" alt="Download APK"></a><br><sub>Direct download, universal APK</sub></td>
-<td align="center" width="33%"><a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/lucaswotta/webmini-androidtv"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="64"></a><br><sub>Auto-updates from GitHub releases</sub></td>
-<td align="center" width="33%"><a href="#with-the-downloader-app"><img src="https://img.shields.io/badge/Downloader-3325686-1e6fe0?style=for-the-badge" alt="Downloader 3325686"></a><br><sub>TV without keyboard: type the code</sub></td>
-</tr>
-</table>
-
-<img src="docs/images/hero.png" alt="WebMini on a TV showing a Wikipedia article with the remote-controlled pointer" width="900">
+<img src="docs/images/hero.png" alt="OnePage on a TV showing a Wikipedia article with the remote-controlled pointer" width="900">
 
 </div>
 
-## Why WebMini
+## Why
 
-People who open a browser on a TV want to reach one site, read it or press play, and go back to the couch. Most pages are built for a mouse and a desktop ad budget: pop-ups, redirects to other apps, autoplaying ads and trackers that a TV remote cannot fight.
+People who open a browser on a TV want to reach one site, read it or press play, and go back to the couch. Most pages are built for a mouse and carry pop-ups, redirects to other apps and trackers that a remote cannot fight. OnePage keeps one page open and filters the rest.
 
-WebMini keeps one page open at a time and filters the rest:
+- Ads and trackers are blocked on the network by [`adblock-rust`](https://github.com/brave/adblock-rust), the engine of the Brave browser, with EasyList and EasyPrivacy. Loading the `uol.com.br` home page for 30 s made 115 requests to 19 hosts (1.2 MB) with filtering on, against 230 to 265 requests to 64 to 92 hosts (2.9 to 3.2 MB) with it off.
+- The app uses 63.3 MB of memory (PSS) on the home screen, 11.2 MB of it native heap. Version 0.3.1 used 70.6 MB and 15.4 MB.
+- The compiled filter engine is stored on disk and reloads in 0.14 s on the next start. Building it from the list files takes 0.56 s, and happens only when the app or a list changes.
+- One tab, no second window. Pages cannot launch other apps or the Play Store, and every HTTP page, pop-up and download asks first.
+- No account, sync, history, telemetry or background service.
 
-- Network filtering with [`adblock-rust`](https://github.com/brave/adblock-rust), the engine used by the Brave browser, loaded with EasyList and EasyPrivacy.
-- No new windows. A pop-up opens only after you confirm it, in the same tab.
-- Pages cannot launch other apps or the Play Store (`intent://`, `market://` and every scheme other than `http` and `https`).
-- A confirmation before every HTTP page and every download.
-- 1.8 MB APK for 32-bit ARM TVs, with no tabs, accounts, sync, history or telemetry to carry.
+The memory and engine numbers were measured on a TiVo Stream 4K (Android TV 12, 2 GB RAM, `armeabi-v7a`) with a debug build on 2026-11-11. The request numbers were measured on the same device with version 0.2.0 on 2026-10-24, cache disabled, three runs each. The method is in [`docs/testing.md`](docs/testing.md).
 
-Measured on a TiVo Stream 4K (Android 12, 2 GB RAM) on 2026-10-24, loading the `uol.com.br` home page for 30 s with the cache disabled, three runs each:
+## Install
 
-| | Requests | Data transferred | Hosts contacted |
-| --- | ---: | ---: | ---: |
-| Filtering off | 230–265 | 2.9–3.2 MB | 64–92 |
-| Filtering on | 115 | 1.2 MB | 19 |
+Requirements: Android 6.0 (API 23) or later and Android System WebView, which is preinstalled on Android TV. OnePage also runs on phones and tablets.
 
-Cold start on the same device: 0.7–1.4 s to the home screen.
+The APK files are on the [releases page](https://github.com/lucaswotta/onepage/releases/latest).
 
-## Screenshots
+| File | Use it for |
+| --- | --- |
+| `OnePage-armeabi-v7a.apk` | Recommended for TVs. 32-bit ARM, for low-RAM sticks and boxes, including 64-bit chips that run a 32-bit system. |
+| `OnePage-universal.apk` | Any device. Use it on 64-bit-only systems or when you are not sure. |
+| `OnePage-arm64-v8a.apk` | 64-bit ARM systems. |
+| `OnePage-x86_64.apk` | Android TV emulator and x86 devices. |
+
+`adb shell getprop ro.product.cpu.abilist` prints the architectures the device accepts.
+
+### With the Downloader app
+
+1. Install [Downloader by AFTVnews](https://play.google.com/store/apps/details?id=com.esaba.downloader) from the Play Store on the TV.
+2. In the TV settings, allow Downloader to install unknown apps.
+3. Open Downloader and enter this address:
+
+   ```text
+   https://github.com/lucaswotta/onepage/releases/latest/download/OnePage-armeabi-v7a.apk
+   ```
+
+   On a 64-bit-only system, use the universal build:
+
+   ```text
+   https://github.com/lucaswotta/onepage/releases/latest/download/OnePage-universal.apk
+   ```
+
+   ![Downloader fetching the OnePage APK from the releases page](docs/images/downloader.png)
+
+4. Confirm the installation. OnePage appears in the apps row of the launcher.
+
+### With Obtainium
+
+[Add OnePage to Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/lucaswotta/onepage). Obtainium tracks the releases and notifies you when an update is available.
+
+### With ADB
+
+Enable developer options and network debugging on the TV, then:
+
+```sh
+adb connect <tv-ip>:5555
+adb install -r OnePage-armeabi-v7a.apk
+```
+
+`-r` updates an installed copy and keeps its data. The APK must carry the certificate listed in [Release signing certificate](#release-signing-certificate), or Android rejects the update.
+
+### Coming from WebMini
+
+OnePage was called WebMini up to version 0.3.1. The application ID changed with the name, so OnePage installs next to WebMini instead of updating it. Favorites and options are not carried over: add the favorites again by hand in OnePage, then uninstall WebMini.
+
+## Using the remote
+
+| Input | Action |
+| --- | --- |
+| D-pad | Moves focus on the home screen and in menus; moves the pointer on web pages. Holding a direction speeds the pointer up. |
+| Pointer at an edge of the screen | Scrolls the page up, down, left or right, faster the longer it stays there. |
+| OK, Enter or gamepad A | Clicks under the pointer. In the address bar, opens the keyboard. |
+| Up at the top of a page | Focuses the toolbar at the address bar, with the current address selected. Left and right move between the buttons. |
+| Down in the toolbar | Returns to the pointer. |
+| Hold OK on a favorite | Opens Open, Move earlier, Move later and Remove for that favorite. |
+| Page Up, Page Down, Channel Up, Channel Down | Move the page one screen. Menu > Go to offers Top, Screen up, Screen down and Bottom for remotes without these keys. |
+| Play/pause, rewind, fast-forward | Act on the page's video; rewind and fast-forward seek 10 s. |
+| Back or gamepad B | Closes the menu or the focused field, leaves the toolbar and full screen, then goes back one page. On the home screen, exits. |
+| Left and right in a text field | Move the text cursor, or leave the field at the ends of the text. |
+| Gamepad analog stick | Moves the pointer on web pages. |
+
+The pointer hides after 2.5 s without input and returns on the next key press. While a text field inside a page has the keyboard, the D-pad and the page keys go to the field; press Back to leave it, then up reaches the toolbar.
+
+## Features
 
 | Home and favorites | Options |
 | --- | --- |
@@ -59,142 +108,74 @@ Cold start on the same device: 0.7–1.4 s to the home screen.
 
 The interface follows the device language: English, Spanish or Brazilian Portuguese. The screenshots show the Portuguese interface.
 
-## Install
-
-WebMini is distributed as APK files on the [releases page](https://github.com/lucaswotta/webmini-androidtv/releases/latest).
-
-| File | Use it for |
-| --- | --- |
-| `WebMini-universal.apk` | Any device. Pick this one if you are not sure. |
-| `WebMini-armeabi-v7a.apk` | 32-bit ARM. Most TV sticks and boxes, including 64-bit chips that run a 32-bit system. |
-| `WebMini-arm64-v8a.apk` | 64-bit ARM systems. |
-| `WebMini-x86_64.apk` | Android TV emulator and x86 devices. |
-
-To find your device's architecture, run `adb shell getprop ro.product.cpu.abilist`. The first value is the one to use.
-
-### With the Downloader app
-
-1. Install [Downloader by AFTVnews](https://play.google.com/store/apps/details?id=com.esaba.downloader) from the Play Store on the TV.
-2. In the TV settings, allow Downloader to install unknown apps.
-3. Open Downloader and enter code `3325686`.
-
-   ![Downloader resolving code 3325686 to the WebMini APK on the releases page](docs/images/downloader.png)
-
-   Or use the direct link:
-
-   ```text
-   https://github.com/lucaswotta/webmini-androidtv/releases/latest/download/WebMini-universal.apk
-   ```
-
-4. Confirm the installation. WebMini appears in the apps row of the launcher.
-
-### With Obtainium
-
-[<img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="64">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/lucaswotta/webmini-androidtv)
-
-With Obtainium installed, the badge adds WebMini to the app list. Obtainium tracks releases and notifies you when an update is available.
-
-### With ADB
-
-Enable developer options and network debugging on the TV, then:
-
-```sh
-adb connect <tv-ip>:5555
-adb install -r WebMini-universal.apk
-```
-
-`-r` updates an installed copy and keeps its data; without it the command fails when WebMini is already installed. The APK must carry the certificate listed in [Release signing certificate](#release-signing-certificate), or Android rejects the update, and uninstalling first erases favorites and options.
-
-WebMini registers as a browser, so links opened by other apps can open in it.
-
-## Features
-
-### Protection
-
-| Threat | What WebMini does |
-| --- | --- |
-| Ads and trackers | Blocks matching network requests with EasyList and EasyPrivacy, including requests made by service workers. A short built-in host list covers the seconds while the lists load. |
-| Pop-ups and new windows | Never opens a second window. A pop-up started by a click asks for confirmation and shows the destination host; one started by a script is discarded. |
-| Redirects to other apps | Blocks navigation to any scheme other than `http` and `https`. |
-| Unencrypted pages | Asks before loading any HTTP page opened by GET, whether it comes from a link, a redirect, the address bar, a favorite or another app. Forms sent over HTTP are blocked. Mixed content is never loaded. |
-| Downloads | Shows file name, host and type before saving to Downloads. Files never open automatically. |
-| Device access | Denies camera, microphone and location requests. File uploads and `file://` or `content://` access are blocked. |
-| Malicious sites | Android System WebView Safe Browsing is on (Android 8.0 and later). |
-| Crashed pages | Recovers when the page renderer stops, without closing the app. |
-
-Filter lists are downloaded over HTTPS from `easylist.to` and, when a regional list is enabled, `easylist-downloads.adblockplus.org`, refreshed every 7 days (a list that fails to download is retried on the next launch), limited to 5 MB each, checked for a valid header and replaced atomically. The regional list can be set to automatic, Portuguese, Spanish or none in Menu > Block ads and trackers > Regional list. Menu > Block ads and trackers also provides "Filter on this site" to create an exception for the current session only. The menu displays "loading lists" while lists are compiled and "basic list only" when running on fallback rules. Both blocking options can be turned off from the options menu.
-
 ### Browsing
 
-- Address bar that accepts a URL or a search, with Google, DuckDuckGo, Bing or Brave as the engine. Queries use the chosen search engine.
-- Voice search using the remote microphone, performed by the speech recognizer installed on the device (audio is processed by that recognizer).
+- Address bar that accepts a URL or a search, with Google, DuckDuckGo, Bing or Brave as the search engine.
+- Voice search with the remote microphone, performed by the speech recognizer installed on the device.
 - Back, forward, reload and home.
-- Menu > Preferences: search engine, desktop site (sends a desktop Chrome user agent and reloads) and text size (100, 125 or 150%).
-- The menu shows how many requests were blocked on the current page, for example "on (23)".
+- Find in page, from Menu > Find in page, with previous and next result.
+- Up to 4 favorites on the home screen, shown with the page title, so the home screen fits without scrolling. With the grid full, the star lists the favorites so one can be replaced.
+- Menu > Preferences: search engine, desktop site (sends a desktop Chrome user agent and reloads), text size (100, 125 or 150%) and screen margin (0, 2, 4 or 6%) for TVs that crop the picture edges.
 - Local addresses typed without a scheme (`localhost:8080`, `192.168.0.10`) open over HTTP, with the HTTP warning.
-- Up to 4 favorites are shown on the home screen so the page always fits the screen without scrolling; favorites beyond 4 remain stored. With the grid full, the star opens the stored list so one favorite can be replaced, and Menu > Remove favorite deletes one.
-- Clear cache from the options menu. The cache is also erased when the app is closed normally; keeping the cache increases device storage use.
 - Full-screen video.
-- System light and dark themes on phones; a black interface on TV.
+- HTTP error responses (404, 500 and others) show the server's own page. The error screen appears only when the connection fails, and offers reload, edit address and home.
+- When Android stops the page renderer, the app stays open and offers to reload the page. When Android kills the app in the background, the page reopens at the same scroll position.
+- OnePage registers as a browser, so links opened by other apps can open in it.
 
-## Remote control
+### Ad blocking
 
-| Input | Action |
+- Network requests are matched against EasyList and EasyPrivacy, including requests made by service workers. A regional list for Portuguese or Spanish is chosen by the device language or in Menu > Block ads and trackers > Regional list.
+- The first page waits up to 6 s for the filter engine and says so. If the engine is not ready by then, the page opens with a notice and reduced blocking.
+- A script that redirects the current tab to a host on the filter lists is stopped, with a notice.
+- "Filter on this site" in the same menu exempts the current site until the app closes.
+- The menu shows how many requests were blocked on the current page, for example "on (23)", and the engine state while lists load.
+- Lists are downloaded over HTTPS from `easylist.to` and `easylist-downloads.adblockplus.org`, refreshed every 7 days, limited to 5 MB each, checked for a valid header and replaced atomically. An update sends `ETag` and `Last-Modified`, so an unchanged list costs one `304` response and no rebuild.
+- A notice appears once per WebView version when Android System WebView is below Chromium 80, where blocking is incomplete.
+
+## Privacy and security
+
+OnePage has no analytics, telemetry, account or browsing history. The back stack lasts for the current session.
+
+| Threat | What OnePage does |
 | --- | --- |
-| D-pad | Moves focus on the home screen and in menus; moves the pointer on web pages. Holding a direction speeds the pointer up. |
-| Up at the top of a page | Focuses the address bar, with the current address selected. |
-| Down in the address bar | Leaves the address bar and returns to the pointer. |
-| Pointer at an edge of the screen | Scrolls the page up, down, left or right, faster the longer it stays there. |
-| OK, Enter or gamepad A | Clicks under the pointer. In the address bar, opens the keyboard. |
-| Back or gamepad B | Closes the menu or the focused field, leaves the toolbar and full screen, then goes back one page. On the home screen, exits. |
-| Left and right in a text field | Move the text cursor, or leave the field at the ends of the text. |
-| Gamepad analog stick | Moves the pointer. Ignored on the home screen, in menus and in the toolbar. |
-
-The pointer hides after 2.5 s without input and returns on the next key press. While a text field inside a page has the keyboard, the D-pad goes to the page; press Back to leave the field, then up reaches the toolbar.
-
-## Privacy
-
-WebMini has no analytics, telemetry, account or browsing history. The back stack lasts only for the current session.
+| Pop-ups and new windows | Never opens a second window. A pop-up started by a click asks for confirmation and shows the address the script really opens; a pop-up started without a click is discarded. |
+| Redirects to other apps | Blocks navigation to any scheme other than `http` and `https`, including `intent://` and `market://`. |
+| Unencrypted pages | Asks before loading any HTTP page opened by GET, whether it comes from a link, a redirect, the address bar, a favorite or another app. Forms sent over HTTP are blocked. Mixed content is never loaded. |
+| Downloads | Shows file name, host and type before saving to Downloads. Files never open automatically. The `Referer` sent follows `strict-origin-when-cross-origin`. |
+| Device access | Denies camera, microphone and location requests. File uploads and `file://` or `content://` access are blocked. |
+| Malicious sites | Android System WebView Safe Browsing is on (Android 8.0 and later). |
 
 Stored on the device, in the app's private storage:
 
-- preferences (blocking options, chosen search engine and regional list choice) and favorites;
-- the cached EasyList, EasyPrivacy and regional list files;
+- preferences and favorites;
+- the filter list files and the compiled engine (`engine.dat`);
 - cookies and site storage, managed by Android System WebView. Third-party cookies are refused;
-- the page cache, which WebMini erases when the app is closed normally and on demand from the options menu; keeping the cache increases device storage use.
+- the page cache, kept between sessions.
 
-App data is excluded from cloud backup, device-to-device transfer and `adb backup`. To erase everything, open Settings > Apps > WebMini > Clear storage.
+Menu > Clear data erases the cache, the cookies and site data, or both. App data is excluded from cloud backup, device-to-device transfer and `adb backup`. To erase everything, open Settings > Apps > OnePage > Clear storage.
 
 Requests made outside the pages you visit:
 
-- `easylist.to` and, when a regional list is enabled, `easylist-downloads.adblockplus.org`, every 7 days while ad blocking is on (a list that fails to download is retried on the next launch);
+- `easylist.to` and, when a regional list is enabled, `easylist-downloads.adblockplus.org`, every 7 days while ad blocking is on. A list that fails to download is retried on the next launch;
 - Google Safe Browsing, through Android System WebView, on Android 8.0 and later;
-- the chosen search engine (Google, DuckDuckGo, Bing or Brave), when you search from the home screen or the address bar.
+- the chosen search engine, when you search from the home screen or the address bar;
+- the speech recognizer installed on the device, when you use voice search.
 
-## Limitations
+### Release signing certificate
 
-- Filtering acts on network requests only. Blocked ads can leave empty space on the page, and ads served by the site itself, including YouTube video ads, are not removed.
-- Sites can detect that requests were blocked.
-- Android System WebView does not pass every request to the filter: the interceptor sees the first URL of a redirected resource, not the chain, and cannot cover everything a browser with its own network stack can. A POST form to an HTTP address is not covered by the HTTP warning because the WebView does not report POST navigations to that callback.
-- Regional filter lists exist for Portuguese and Spanish (chosen automatically by device language or in Menu > Block ads and trackers > Regional list). Other languages rely on EasyList's generic rules.
-- WebMini does not make browsing anonymous.
+Release APKs are signed with this certificate, the same one used by WebMini releases. Android refuses updates signed with a different key.
 
-## Requirements
+```text
+SHA-256: AB:E8:D3:13:DC:19:19:CB:B4:6A:E4:9B:DC:CF:2C:BC:35:37:66:AF:2A:B3:FD:25:5B:3B:B2:90:39:14:57:37
+```
 
-- Android 6.0 (API 23) or later, on TV, phone or tablet.
-- Android System WebView, preinstalled on Android TV.
+Check a downloaded file with `apksigner verify --print-certs OnePage-armeabi-v7a.apk`, and its hash against `SHA256SUMS.txt` from the same release.
 
-## Tested devices
+To report a vulnerability privately, see [`SECURITY.md`](SECURITY.md).
 
-| Device | System | Architecture | WebView | Result |
-| --- | --- | --- | --- | --- |
-| TiVo Stream 4K | Android TV 12 | `armeabi-v7a` | 155 | Works |
+## Build from source
 
-Running WebMini on another device? [Open a device report](https://github.com/lucaswotta/webmini-androidtv/issues/new?template=device-report.yml) with the model and what worked, so this table can grow.
-
-## Build
-
-Requirements: JDK 17 or later, Android SDK Platform 36, Android NDK 27.2.12479018, Rust 1.99.1 and [`cargo-ndk`](https://github.com/bbqsrc/cargo-ndk) 4.1.2. CI uses Rust 1.99.1 and cargo-ndk 4.1.2; install the same versions to reproduce builds locally.
+Requirements: JDK 17 or later, Android SDK Platform 36, Android NDK 27.2.12479018, Rust 1.99.1 and [`cargo-ndk`](https://github.com/bbqsrc/cargo-ndk) 4.1.2. CI uses the same versions.
 
 ```sh
 rustup toolchain install 1.99.1 --profile minimal
@@ -205,9 +186,9 @@ export ANDROID_HOME=/path/to/android/sdk
 ./gradlew :app:assembleDebug
 ```
 
-The build compiles the Rust filter for the three architectures, then writes one APK per architecture plus a universal APK to `app/build/outputs/apk/debug/`. Debug builds use the application ID `io.github.lucaswotta.webmini.debug`, so they install next to the release.
+The build compiles the Rust filter (`libonepage_adblock.so`) for the three architectures, then writes one APK per architecture plus a universal APK to `app/build/outputs/apk/debug/`. Debug builds use the application ID `io.github.lucaswotta.onepage.debug`, so they install next to the release.
 
-Release builds are signed when these Gradle properties are set, for example in `~/.gradle/gradle.properties`:
+Release builds are signed when these Gradle properties are set, for example in `~/.gradle/gradle.properties`. The property names keep the `webmini` prefix from before the rename:
 
 ```properties
 webminiStoreFile=/path/to/release.jks
@@ -222,37 +203,25 @@ webminiKeyPassword=...
 
 Without them, `assembleRelease` produces unsigned APKs.
 
-Continuous integration runs the unit tests and lint, builds both variants on every push to `main` and every pull request, and checks that each release APK carries the matching `libwebmini_adblock.so`. It uploads only the debug APKs; `SHA256SUMS.txt` is written by the release workflow. The workflows pin Rust 1.99.1, cargo-ndk 4.1.2 and each action by commit SHA, and the Gradle wrapper verifies the SHA-256 of its distribution.
+`./gradlew :app:testDebugUnitTest :app:lintRelease` runs the unit tests and lint. The manual checklist and the device matrix are in [`docs/testing.md`](docs/testing.md).
 
-Pushing a tag `v*` runs `.github/workflows/release.yml`: it refuses a tag that does not match `versionName`, builds a signed release, checks every APK against the certificate digest in [Release signing certificate](#release-signing-certificate), renames the files to `WebMini-{universal,armeabi-v7a,arm64-v8a,x86_64}.apk`, writes `SHA256SUMS.txt` and attaches both to the release page. Signing reads the repository secrets `WEBMINI_KEYSTORE_BASE64` (the keystore encoded with `base64 -w0`), `WEBMINI_STORE_PASSWORD`, `WEBMINI_KEY_ALIAS` and `WEBMINI_KEY_PASSWORD`; no key material reaches the repository or the logs. The workflow runs only when the repository variable `WEBMINI_CI_RELEASE` is `true`; otherwise releases are built and published from a local machine.
+Continuous integration runs the same tasks, builds both variants on every push to `main` and every pull request, and checks that each release APK carries the matching `libonepage_adblock.so`. The workflows pin Rust, cargo-ndk and each action by commit SHA, and the Gradle wrapper verifies the SHA-256 of its distribution.
 
-### Project layout
+Pushing a tag `v*` runs `.github/workflows/release.yml`: it refuses a tag that does not match `versionName`, builds a signed release, checks every APK against the certificate digest above, renames the files to `OnePage-{universal,armeabi-v7a,arm64-v8a,x86_64}.apk`, writes `SHA256SUMS.txt` and attaches them to the release page. Signing reads the repository secrets `WEBMINI_KEYSTORE_BASE64` (the keystore encoded with `base64 -w0`), `WEBMINI_STORE_PASSWORD`, `WEBMINI_KEY_ALIAS` and `WEBMINI_KEY_PASSWORD`. The workflow runs only when the repository variable `WEBMINI_CI_RELEASE` is `true`; otherwise releases are built and published from a local machine.
 
-| Path | Contents |
-| --- | --- |
-| `app/src/main/java/io/github/lucaswotta/webmini/MainActivity.java` | The whole browser: interface, TV pointer, WebView policies, filter list updates. |
-| `native/adblock/src/lib.rs` | JNI bridge to `adblock-rust`. |
-| `app/src/main/res/` | Strings in English, Spanish and Portuguese; icons and TV banner. |
-| `docs/brand/webmini-mark.svg` | Logo source. |
+Bug reports, [device reports](https://github.com/lucaswotta/onepage/issues/new?template=device-report.yml) and pull requests are welcome. Planned work is in [`docs/ROADMAP.md`](docs/ROADMAP.md) and released changes in [`CHANGELOG.md`](CHANGELOG.md).
 
-## Release signing certificate
+## Limitations
 
-Release APKs are signed with this certificate. Android refuses updates signed with a different key.
-
-```text
-SHA-256: AB:E8:D3:13:DC:19:19:CB:B4:6A:E4:9B:DC:CF:2C:BC:35:37:66:AF:2A:B3:FD:25:5B:3B:B2:90:39:14:57:37
-```
-
-Check a downloaded file with `apksigner verify --print-certs WebMini-universal.apk`.
-
-## Testing
-
-`./gradlew :app:testDebugUnitTest` runs the navigation policy tests. The manual checklist and the device matrix are in [`docs/testing.md`](docs/testing.md).
-
-## Contributing
-
-Bug reports, device reports and pull requests are welcome. See [`SECURITY.md`](SECURITY.md) to report a vulnerability privately.
+- Filtering acts on network requests only. Blocked ads can leave empty space on the page, and ads served by the site itself, including YouTube video ads, are not removed.
+- Sites can detect that requests were blocked.
+- Android System WebView does not pass every request to the filter: the interceptor sees the first URL of a redirected resource and cannot cover everything a browser with its own network stack can. A POST form to an HTTP address is blocked instead of confirmed, because the WebView does not report POST navigations to the callback that shows the warning.
+- Regional filter lists exist for Portuguese and Spanish. Other languages rely on EasyList's generic rules.
+- Protected media (EME, used by paid streaming services) is not supported.
+- The home screen shows 4 favorites.
+- Tested on one device: TiVo Stream 4K, Android TV 12, `armeabi-v7a`, WebView 155. Android 6.0 is the minimum supported version and has not been run on a device.
+- OnePage does not make browsing anonymous.
 
 ## License
 
-WebMini is released under the [MIT License](LICENSE). The bundled `adblock-rust` component is licensed under MPL-2.0; its license ships in the app at `app/src/main/assets/MPL-2.0.txt`. EasyList and EasyPrivacy are downloaded at run time and are not part of this repository.
+OnePage is released under the [MIT License](LICENSE). The bundled `adblock-rust` component is licensed under MPL-2.0; its license ships in the app at `app/src/main/assets/MPL-2.0.txt`. EasyList and EasyPrivacy are downloaded at run time and are not part of this repository.

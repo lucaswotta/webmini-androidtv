@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.4.0 (unreleased)
+
+WebMini becomes OnePage. The application ID changed, so OnePage installs next to WebMini instead of updating it: add the favorites again by hand in OnePage, then uninstall WebMini.
+
+### Added
+
+- Find in page, from Menu > Find in page, with previous and next result.
+- Page jumps: the Page Up, Page Down, Channel Up and Channel Down keys move one screen, and Menu > Go to offers Top, Screen up, Screen down and Bottom.
+- Media keys act on the page's video: play/pause, and rewind and fast-forward seek 10 s.
+- Favorites store the page title. Holding OK on a favorite opens Open, Move earlier, Move later and Remove (#8). Favorites saved by older versions still load.
+- Preferences > Screen margin (0, 2, 4 or 6%) for TVs that crop the picture edges.
+- A notice, shown once per WebView version, when Android System WebView is below Chromium 80.
+- The first navigation waits up to 6 s for the filter engine and says so; if the engine is not ready the page opens with a notice (#23).
+- Scripted redirects of the current tab to a host on the filter lists are blocked and reported (#21).
+- After the renderer process is killed, the error screen offers to reload the page.
+- Scroll position is restored after the system kills the app.
+
+### Changed
+
+- Renamed to OnePage, with a new mark, "Page one": a page plate with a cut-out 1.
+- Application ID changed from `io.github.lucaswotta.webmini` to `io.github.lucaswotta.onepage` (debug: `io.github.lucaswotta.onepage.debug`), signed with the same release certificate. The Java package is `io.github.lucaswotta.onepage` and the native library is `libonepage_adblock.so` (Cargo package `onepage-adblock`).
+- Repository moved to `https://github.com/lucaswotta/onepage`. Release files are `OnePage-universal.apk`, `OnePage-armeabi-v7a.apk`, `OnePage-arm64-v8a.apk` and `OnePage-x86_64.apk`, plus `SHA256SUMS.txt`.
+- `OnePage-armeabi-v7a.apk` is the recommended build for low-RAM TVs; the universal APK stays for 64-bit-only systems.
+- Filter lists are downloaded to disk and read by the native side; no list text passes through the Java heap.
+- The filter engine loads network rules only (`RuleTypes::NetworkOnly`).
+- The compiled engine is persisted as `engine.dat` and reused until the app or a list file changes.
+- List updates send `ETag` and `Last-Modified`, handle `304`, and skip the rebuild when the downloaded content is identical.
+- The native library is built with `opt-level = "s"`.
+- Measured on a TiVo Stream 4K (`armeabi-v7a`, debug build, 2026-11-11): engine build 0.56 s, reload of the persisted engine 0.14 s, home screen PSS 63.3 MB (70.6 MB in 0.3.1), app native heap 11.2 MB (15.4 MB in 0.3.1).
+- The HTTP cache is no longer erased on exit; only Menu > Clear data clears it.
+- The `window.open` confirmation shows the address the script really opens, read through a short-lived hidden WebView that downloads nothing (#22).
+- Download `Referer` follows `strict-origin-when-cross-origin`.
+
+### Fixed
+
+- A remote or keyboard connecting recreated the Activity and reloaded the page (`configChanges`).
+- HTTP error responses (404, 500 and others) were replaced by the error screen; the server's own page is shown, and the error screen is only for transport failures.
+- Filter list downloads kept running after the app closed.
+
 ## 0.3.1 (2026-11-07)
 
 ### Added
