@@ -15,6 +15,7 @@
     <string name="action_continue">Continuar</string>
     <string name="action_cancel">Cancelar</string>
     <string name="navigation_blocked">Navegação bloqueada</string>
+    <string name="navigation_ad_blocked">Redirecionamento para anúncio bloqueado.</string>
     <string name="page_stopped">A página parou. Digite o endereço para recarregar.</string>
     <string name="popup_block_enabled">Bloquear pop-ups: ligado</string>
     <string name="popup_block_disabled">Bloquear pop-ups: desligado</string>

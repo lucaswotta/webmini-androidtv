@@ -16,6 +16,7 @@
     <string name="action_continue">Continue</string>
     <string name="action_cancel">Cancel</string>
     <string name="navigation_blocked">Navigation blocked</string>
+    <string name="navigation_ad_blocked">Redirect to an ad was blocked.</string>
     <string name="page_stopped">The page stopped. Enter its URL to reload.</string>
     <string name="popup_block_enabled">Block pop-ups: on</string>
     <string name="popup_block_disabled">Block pop-ups: off</string>

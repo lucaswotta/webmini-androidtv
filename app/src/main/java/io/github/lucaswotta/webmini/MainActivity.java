@@ -149,6 +149,10 @@ public class MainActivity extends Activity {
     private String heldUrl;
     private static final long FILTER_WAIT_MS = 6000;
     private final Runnable releaseHeldNavigation = () -> loadHeldNavigation(true);
+    // Hidden window that only reports where a window.open goes; at most one exists.
+    private WebView popupProbe;
+    private static final long POPUP_PROBE_MS = 10000;
+    private final Runnable popupProbeTimeout = this::discardPopupProbe;
     private int restoredScrollY;
     private int nightMode;
     private static final String DESKTOP_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) "
@@ -423,6 +427,7 @@ public class MainActivity extends Activity {
             webView.destroy();
             webView = null;
         }
+        discardPopupProbe();
         homePage = true;
         heldUrl = null;
         root.removeCallbacks(releaseHeldNavigation);
@@ -729,6 +734,18 @@ public class MainActivity extends Activity {
         return true;
     }
 
+    // The network filter leaves main-frame requests alone, so a script or redirect could
+    // move the tab to an ad without a click. Same-site moves are never checked, which keeps
+    // sign-in hops between subdomains out of the filter's reach.
+    private boolean isAdRedirect(WebResourceRequest request) {
+        if (!request.isForMainFrame() || request.hasGesture()) return false;
+        PageContext context = pageContext;
+        String url = request.getUrl().toString();
+        return !context.exempt && NavigationPolicy.isCrossSite(context.url, url)
+                && filterEngine.isEnabled() && filterEngine.isReady()
+                && filterEngine.shouldBlock(url, context.url, "document", "GET");
+    }
+
     private void loadFavorites() {
         favorites.clear();
         String saved = getPreferences(MODE_PRIVATE).getString(FAVORITES_KEY, "[]");
@@ -895,6 +912,11 @@ public class MainActivity extends Activity {
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                if (isAdRedirect(request)) {
+                    Toast.makeText(MainActivity.this, R.string.navigation_ad_blocked,
+                            Toast.LENGTH_SHORT).show();
+                    return true;
+                }
                 return overrideNavigation(request.getUrl().toString(), request.isForMainFrame(),
                         request.getMethod());
             }
@@ -986,26 +1008,18 @@ public class MainActivity extends Activity {
             @Override
             public boolean onCreateWindow(WebView view, boolean isDialog,
                                           boolean isUserGesture, Message resultMsg) {
-                String link = isUserGesture && !isDialog
-                        ? view.getHitTestResult().getExtra() : null;
-                if (link != null && (link.startsWith("https://") || link.startsWith("http://"))) {
-                    view.post(() -> {
-                        Runnable openLink = () -> {
-                            if (webView != null) navigateTo(link);
-                        };
-                        if (popupsBlocked) {
-                            showConfirmation(getString(R.string.popup_open_title),
-                                    getString(R.string.popup_open_message, Uri.parse(link).getHost()),
-                                    getString(R.string.action_open), getString(R.string.action_block), openLink);
-                        } else {
-                            openLink.run();
-                        }
-                    });
-                } else {
-                    view.post(() -> Toast.makeText(MainActivity.this,
-                            R.string.popup_unknown_blocked, Toast.LENGTH_LONG).show());
+                if (!isUserGesture) {
+                    showPopupBlocked();
+                    return false;
                 }
-                return false;
+                // The tapped element's href is not where a scripted window.open goes, so a
+                // hidden window receives the navigation only to learn its real destination.
+                discardPopupProbe();
+                popupProbe = createPopupProbe();
+                root.postDelayed(popupProbeTimeout, POPUP_PROBE_MS);
+                ((WebView.WebViewTransport) resultMsg.obj).setWebView(popupProbe);
+                resultMsg.sendToTarget();
+                return true;
             }
 
             @Override
@@ -1055,6 +1069,83 @@ public class MainActivity extends Activity {
         address.setText(url.equals(BLANK) ? currentUrl : url);
         updateFavoriteButton();
         webView.loadUrl(url);
+    }
+
+    private WebView createPopupProbe() {
+        WebView probe = new WebView(this);
+        probe.getSettings().setJavaScriptEnabled(false);
+        probe.setWebViewClient(new WebViewClient() {
+            // Nothing is fetched for the hidden window, so the destination sets no cookie
+            // and runs nothing before the user decides.
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view,
+                                                               WebResourceRequest request) {
+                return new WebResourceResponse("text/plain", "UTF-8",
+                        new ByteArrayInputStream(EMPTY_BODY));
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                if (request.isForMainFrame()) takePopupDestination(view, request.getUrl().toString());
+                return true;
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                takePopupDestination(view, url);
+                return true;
+            }
+
+            // A URL given straight to window.open may load without asking for an override.
+            @Override
+            public void onPageStarted(WebView view, String pageUrl,
+                                      android.graphics.Bitmap favicon) {
+                takePopupDestination(view, pageUrl);
+            }
+        });
+        return probe;
+    }
+
+    // Pages often open about:blank first and set the address afterwards, so the blank
+    // document is skipped and the probe waits for the next URL or the timeout.
+    private void takePopupDestination(WebView probe, String url) {
+        if (probe != popupProbe || url == null || BLANK.equals(url)) return;
+        // A WebView destroyed from inside its own callback can crash, so this runs after it.
+        root.post(() -> {
+            if (probe != popupProbe) return;
+            discardPopupProbe();
+            openPopup(url);
+        });
+    }
+
+    private void discardPopupProbe() {
+        root.removeCallbacks(popupProbeTimeout);
+        if (popupProbe == null) return;
+        popupProbe.stopLoading();
+        popupProbe.destroy();
+        popupProbe = null;
+    }
+
+    private void openPopup(String url) {
+        if (webView == null) return;
+        if (NavigationPolicy.origin(url) == null) {
+            showPopupBlocked();
+            return;
+        }
+        if (popupsBlocked) {
+            showConfirmation(getString(R.string.popup_open_title),
+                    getString(R.string.popup_open_message, Uri.parse(url).getHost()),
+                    getString(R.string.action_open), getString(R.string.action_block), () -> {
+                        if (webView != null) navigateTo(url);
+                    });
+        } else {
+            navigateTo(url);
+        }
+    }
+
+    private void showPopupBlocked() {
+        root.post(() -> Toast.makeText(this, R.string.popup_unknown_blocked,
+                Toast.LENGTH_LONG).show());
     }
 
     private void showNavigationError(WebView failedView, Runnable retry) {
@@ -1887,6 +1978,7 @@ public class MainActivity extends Activity {
         closeMenu();
         hideFullscreen();
         root.removeCallbacks(releaseHeldNavigation);
+        discardPopupProbe();
         if (webView != null) {
             if (webView.getParent() instanceof ViewGroup) {
                 ((ViewGroup) webView.getParent()).removeView(webView);
