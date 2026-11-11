@@ -71,4 +71,9 @@
     <string name="find_previous">Resultado anterior</string>
     <string name="find_next">Próximo resultado</string>
     <string name="find_close">Fechar localizar na página</string>
+    <string name="menu_go_to">Ir para</string>
+    <string name="go_top">Topo</string>
+    <string name="go_screen_up">Uma tela acima</string>
+    <string name="go_screen_down">Uma tela abaixo</string>
+    <string name="go_bottom">Fim</string>
 </resources>

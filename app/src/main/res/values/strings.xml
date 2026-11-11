@@ -73,4 +73,9 @@
     <string name="find_next">Next match</string>
     <string name="find_close">Close find in page</string>
     <string name="find_count" translatable="false">%1$d/%2$d</string>
+    <string name="menu_go_to">Go to</string>
+    <string name="go_top">Top</string>
+    <string name="go_screen_up">Screen up</string>
+    <string name="go_screen_down">Screen down</string>
+    <string name="go_bottom">Bottom</string>
 </resources>

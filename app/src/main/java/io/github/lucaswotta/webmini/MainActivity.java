@@ -1184,6 +1184,7 @@ public class MainActivity extends Activity {
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         int key = event.getKeyCode();
+        if (jumpPage(event)) return true;
         EditText editor = tvMode ? focusedEditor() : null;
         if (tvMode && key == KeyEvent.KEYCODE_BUTTON_B) {
             if (event.getAction() == KeyEvent.ACTION_UP) {
@@ -1297,6 +1298,26 @@ public class MainActivity extends Activity {
         return super.dispatchKeyEvent(event);
     }
 
+    // Long pages are slow to cross with the pointer. While a field is being edited the same
+    // keys belong to the text, and in fullscreen to the video.
+    private boolean jumpPage(KeyEvent event) {
+        int key = event.getKeyCode();
+        boolean down = key == KeyEvent.KEYCODE_PAGE_DOWN || key == KeyEvent.KEYCODE_CHANNEL_DOWN
+                || key == KeyEvent.KEYCODE_MOVE_END;
+        boolean up = key == KeyEvent.KEYCODE_PAGE_UP || key == KeyEvent.KEYCODE_CHANNEL_UP
+                || key == KeyEvent.KEYCODE_MOVE_HOME;
+        if ((!down && !up) || webView == null || homePage || menuPanel != null
+                || fullscreenView != null || focusedEditor() != null || keyboardAcceptingText()) {
+            return false;
+        }
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            boolean whole = key == KeyEvent.KEYCODE_MOVE_HOME || key == KeyEvent.KEYCODE_MOVE_END;
+            if (down) webView.pageDown(whole);
+            else webView.pageUp(whole);
+        }
+        return true;
+    }
+
     private EditText focusedEditor() {
         if (address != null && address.isFocused()) return address;
         if (homeSearch != null && homeSearch.isFocused()) return homeSearch;
@@ -1396,6 +1417,8 @@ public class MainActivity extends Activity {
         if (!homePage && webView != null) {
             labels.add(getString(R.string.menu_find));
             actions.add(this::showFindBar);
+            labels.add(getString(R.string.menu_go_to));
+            actions.add(this::goToMenu);
         }
         labels.add(getString(popupsBlocked
                 ? R.string.popup_block_enabled : R.string.popup_block_disabled));
@@ -1417,6 +1440,17 @@ public class MainActivity extends Activity {
         labels.add(getString(R.string.menu_about));
         actions.add(() -> navigateTo(ABOUT));
         showChoices(labels.toArray(new String[0]), which -> actions.get(which).run());
+    }
+
+    // The same jumps as the page and channel keys, for remotes that lack them.
+    private void goToMenu() {
+        String[] entries = {getString(R.string.go_top), getString(R.string.go_screen_up),
+                getString(R.string.go_screen_down), getString(R.string.go_bottom)};
+        showChoices(entries, which -> {
+            if (webView == null) return;
+            if (which <= 1) webView.pageUp(which == 0);
+            else webView.pageDown(which == 3);
+        });
     }
 
     private void preferencesMenu() {
