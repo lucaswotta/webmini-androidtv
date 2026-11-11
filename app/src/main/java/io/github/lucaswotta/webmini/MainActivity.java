@@ -1184,7 +1184,7 @@ public class MainActivity extends Activity {
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         int key = event.getKeyCode();
-        if (jumpPage(event)) return true;
+        if (jumpPage(event) || controlMedia(event)) return true;
         EditText editor = tvMode ? focusedEditor() : null;
         if (tvMode && key == KeyEvent.KEYCODE_BUTTON_B) {
             if (event.getAction() == KeyEvent.ACTION_UP) {
@@ -1314,6 +1314,43 @@ public class MainActivity extends Activity {
             boolean whole = key == KeyEvent.KEYCODE_MOVE_HOME || key == KeyEvent.KEYCODE_MOVE_END;
             if (down) webView.pageDown(whole);
             else webView.pageUp(whole);
+        }
+        return true;
+    }
+
+    // Acts on the element that is playing, else on the first one, since most pages have a
+    // single player. The step keys exist from API 24; older systems never send them.
+    private boolean controlMedia(KeyEvent event) {
+        String action;
+        boolean seek = false;
+        switch (event.getKeyCode()) {
+            case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
+                action = "if(m.paused||m.ended)play();else m.pause();";
+                break;
+            case KeyEvent.KEYCODE_MEDIA_PLAY: action = "play();"; break;
+            case KeyEvent.KEYCODE_MEDIA_PAUSE: action = "m.pause();"; break;
+            case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD:
+            case KeyEvent.KEYCODE_MEDIA_SKIP_FORWARD:
+            case KeyEvent.KEYCODE_MEDIA_STEP_FORWARD:
+                action = "m.currentTime+=10;";
+                seek = true;
+                break;
+            case KeyEvent.KEYCODE_MEDIA_REWIND:
+            case KeyEvent.KEYCODE_MEDIA_SKIP_BACKWARD:
+            case KeyEvent.KEYCODE_MEDIA_STEP_BACKWARD:
+                action = "m.currentTime-=10;";
+                seek = true;
+                break;
+            default: return false;
+        }
+        if (webView == null || homePage) return false;
+        if (event.getAction() == KeyEvent.ACTION_DOWN && (seek || event.getRepeatCount() == 0)) {
+            // Settings require a user gesture to start media, so play() may be refused; the
+            // rejected promise is caught so it does not surface as a page error.
+            webView.evaluateJavascript("(function(){var all=document.querySelectorAll('video,audio'),"
+                    + "m=all[0];for(var i=0;i<all.length;i++){if(!all[i].paused&&!all[i].ended)"
+                    + "{m=all[i];break;}}if(!m)return;function play(){var p=m.play();"
+                    + "if(p&&p.catch)p.catch(function(){});}" + action + "})()", null);
         }
         return true;
     }
