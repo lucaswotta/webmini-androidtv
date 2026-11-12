@@ -123,8 +123,8 @@ packaged font is required. Memory and APK measurements belong in the dated
 validation records linked from [`testing.md`](../testing.md).
 
 The README download actions use local SVG buttons in English and Brazilian
-Portuguese. Amber identifies the recommended 32-bit TV build; the dark button
-links to the universal build. Both point to fixed asset names under
+Portuguese. Amber identifies the universal APK, which avoids architecture
+selection; the dark button links to the smaller 32-bit TV build. Both point to fixed asset names under
 `releases/latest/download/`, so publishing a new release keeps the links valid.
 Every supported ABI and the checksum file also have plain text download links.
 

@@ -10,8 +10,8 @@ One tab, built-in ad blocking and a pointer that moves with the D-pad.
 Open your favorite sites on the big screen, without a mouse or an account.
 
 <p>
-  <a href="https://github.com/lucaswotta/onepage/releases/latest/download/OnePage-armeabi-v7a.apk"><img src="docs/brand/download-tv-en.svg" alt="Download for TV: recommended 32-bit ARM APK" width="300" height="76"></a>
   <a href="https://github.com/lucaswotta/onepage/releases/latest/download/OnePage-universal.apk"><img src="docs/brand/download-universal-en.svg" alt="Download the universal APK" width="300" height="76"></a>
+  <a href="https://github.com/lucaswotta/onepage/releases/latest/download/OnePage-armeabi-v7a.apk"><img src="docs/brand/download-tv-en.svg" alt="Download for TV: smaller 32-bit ARM APK" width="300" height="76"></a>
 </p>
 
 Android 6.0+ · Free and open source · [Português](README.pt-BR.md)

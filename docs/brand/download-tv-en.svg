@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="300" height="76" viewBox="0 0 300 76" role="img" aria-labelledby="title description">
-  <title id="title">Download for TV</title>
-  <desc id="description">32-bit ARM · Recommended</desc>
-  <rect x="1" y="1" width="298" height="74" fill="#F2BB66" stroke="#F2BB66" stroke-width="2"/>
-  <path d="M33 22v23m-8-8 8 8 8-8M22 49v6h22v-6" fill="none" stroke="#171714" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/>
-  <text x="65" y="32" fill="#171714" font-family="Arial, sans-serif" font-size="18" font-weight="600">Download for TV</text>
-  <text x="65" y="53" fill="#23251F" font-family="Arial, sans-serif" font-size="12">32-bit ARM · Recommended</text>
+  <title id="title">32-bit TV APK</title>
+  <desc id="description">Smaller download · ARMv7</desc>
+  <rect x="1" y="1" width="298" height="74" fill="#181916" stroke="#75786B" stroke-width="2"/>
+  <path d="M33 22v23m-8-8 8 8 8-8M22 49v6h22v-6" fill="none" stroke="#F4F0E6" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/>
+  <text x="65" y="32" fill="#F4F0E6" font-family="Arial, sans-serif" font-size="18" font-weight="600">32-bit TV APK</text>
+  <text x="65" y="53" fill="#B9B9AC" font-family="Arial, sans-serif" font-size="12">Smaller download · ARMv7</text>
 </svg>

@@ -10,8 +10,8 @@ Uma aba, bloqueio de anúncios integrado e um ponteiro que você move pelo direc
 Abra seus sites favoritos na tela grande, sem mouse e sem cadastro.
 
 <p>
-  <a href="https://github.com/lucaswotta/onepage/releases/latest/download/OnePage-armeabi-v7a.apk"><img src="docs/brand/download-tv-pt-br.svg" alt="Baixar para TV: APK ARM de 32 bits recomendado" width="300" height="76"></a>
   <a href="https://github.com/lucaswotta/onepage/releases/latest/download/OnePage-universal.apk"><img src="docs/brand/download-universal-pt-br.svg" alt="Baixar o APK universal" width="300" height="76"></a>
+  <a href="https://github.com/lucaswotta/onepage/releases/latest/download/OnePage-armeabi-v7a.apk"><img src="docs/brand/download-tv-pt-br.svg" alt="Baixar para TV: APK ARM de 32 bits menor" width="300" height="76"></a>
 </p>
 
 Android 6.0+ · Gratuito e de código aberto · [English](README.md)
