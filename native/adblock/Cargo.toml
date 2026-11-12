@@ -7,7 +7,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-adblock = { version = "=0.13.3", default-features = false, features = ["embedded-domain-resolver", "full-regex-handling"] }
+adblock = { version = "=0.13.5", default-features = false, features = ["embedded-domain-resolver", "full-regex-handling"] }
 jni = "0.21.1"
 
 [profile.release]
