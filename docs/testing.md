@@ -6,6 +6,11 @@
 ./gradlew :app:testDebugUnitTest :app:lintRelease
 ```
 
+After renaming a native library, run `./gradlew clean` before building APKs.
+The generated JNI directory can retain the previous `.so`, and an incremental
+build can package both names. Check the exact library set in each APK; a
+successful build alone does not prove the old library was removed.
+
 `NavigationPolicyTest` covers the URL decisions: HTTPS, repeated HTTP, `intent:` and other schemes, invalid URLs, credentials in the URL, POST, subframes and origin normalization. CI runs the same tasks on every pull request and checks that each release APK contains the native library for its ABIs.
 
 ## Manual checklist
