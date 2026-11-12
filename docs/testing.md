@@ -70,7 +70,8 @@ Run on a TV device, with the debug or release build.
 
 | Device | System | Architecture | WebView | Checklist run |
 | --- | --- | --- | --- | --- |
-| TiVo Stream 4K | Android TV 12 | `armeabi-v7a` | 156 | 0.4.0 debug: page jumps, find, media keys, favorite titles and reorder, popup confirmation, HTTP 404/500, background/resume and renderer recovery |
+| TiVo Stream 4K | Android TV 12 | `armeabi-v7a` | 156 | 0.4.0 debug: page jumps, find, media keys, favorite titles/reorder/removal, popup confirmation, ad redirects, HTTP 404/500, background/resume and renderer recovery |
+| Waydroid | Android 13 | `x86_64` | 111 | 0.4.0 debug: page jumps, media keys, URL/scroll restoration after system process death and reload after renderer crash |
 
 Android 6.0 (API 23) is the minimum supported version and has not been run on a device. Device reports go to the [device report form](https://github.com/lucaswotta/onepage/issues/new?template=device-report.yml).
 
