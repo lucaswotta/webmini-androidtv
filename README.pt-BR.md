@@ -100,7 +100,7 @@ O ponteiro some depois de 2,5 s sem uso e volta na próxima tecla. Enquanto um c
 
 | Início e favoritos | Opções |
 | --- | --- |
-| ![Tela inicial com pesquisa e quatro favoritos](docs/images/home.png) | ![Menu de opções com avançar, bloqueio de pop-ups, bloqueio de anúncios e sobre](docs/images/menu.png) |
+| ![Tela inicial com pesquisa e seção de favoritos](docs/images/home.png) | ![Menu de opções com avançar, bloqueio de pop-ups, bloqueio de anúncios e sobre](docs/images/menu.png) |
 | Confirmação de pop-up | Confirmação de download |
 | ![Diálogo pedindo para abrir www.wikipedia.org na aba atual](docs/images/popup.png) | ![Diálogo com nome do arquivo, host e tipo antes do download](docs/images/download.png) |
 | Aviso de HTTP | Opções do bloqueio de anúncios |

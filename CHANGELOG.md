@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0 (unreleased)
+## 0.4.0 (2026-11-11)
 
 WebMini becomes OnePage. The application ID changed, so OnePage installs next to WebMini instead of updating it: add the favorites again by hand in OnePage, then uninstall WebMini.
 

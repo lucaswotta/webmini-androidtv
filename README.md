@@ -100,7 +100,7 @@ The pointer hides after 2.5 s without input and returns on the next key press. W
 
 | Home and favorites | Options |
 | --- | --- |
-| ![Home screen with search and four favorites](docs/images/home.png) | ![Options menu with forward, pop-up blocking, ad blocking and about](docs/images/menu.png) |
+| ![Home screen with search and the favorites section](docs/images/home.png) | ![Options menu with forward, pop-up blocking, ad blocking and about](docs/images/menu.png) |
 | Pop-up confirmation | Download confirmation |
 | ![Dialog asking to open www.wikipedia.org in the current tab](docs/images/popup.png) | ![Dialog showing file name, host and type before a download](docs/images/download.png) |
 | HTTP warning | Ad blocking options |
