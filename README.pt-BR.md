@@ -51,7 +51,7 @@ Escolha como instalar o OnePage na sua Android TV.
 <p><a href="https://go.aftvnews.com/9954974">Abrir o link de download</a></p>
 </td>
 <td align="center" valign="top" width="50%">
-<p><a href="https://obtainium.imranr.dev/"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/icon.svg" alt="Obtainium" width="56" height="56"></a></p>
+<p><a href="https://obtainium.imranr.dev/"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/icon-512x512.png" alt="Obtainium" width="56" height="56"></a></p>
 <h3>Obtainium</h3>
 <p>Instale o OnePage e acompanhe as novas versões pelo GitHub.</p>
 <p><a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/lucaswotta/onepage">Adicionar OnePage ao Obtainium</a></p>
