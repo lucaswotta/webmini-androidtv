@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1 (2026-11-11)
+
+### Fixed
+
+- On TVs, pages without a CSS background keep the WebView default white background. Forcing a black background made their default black text invisible.
+
 ## 0.4.0 (2026-11-11)
 
 WebMini becomes OnePage. The application ID changed, so OnePage installs next to WebMini instead of updating it: add the favorites again by hand in OnePage, then uninstall WebMini.

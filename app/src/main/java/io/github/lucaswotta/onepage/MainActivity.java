@@ -992,7 +992,6 @@ public class MainActivity extends Activity {
         navigationErrorShown = false;
         webView = new WebView(this);
         webView.resumeTimers();
-        if (tvMode) webView.setBackgroundColor(Color.BLACK);
         WebSettings settings = webView.getSettings();
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false);
