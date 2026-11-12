@@ -108,14 +108,13 @@ TV menus use a bordered opaque panel, 48 dp rows and inset 1 dp separators.
 Six entries occupy 317 dp including 24 dp panel padding and five separators.
 An entry containing `: ` is split at its last separator for presentation: label
 at the start, original value at the end in amber. Focus fills the entire row.
-The complete original entry is its accessible name; selection callbacks and
-option strings are unchanged. Entries without that separator remain intact.
+The complete menu entry is its accessible name. Entries without that separator
+remain intact.
 Phone choices retain the native themed dialog.
 
 The loading line and cursor accent are both continuous, square-ended 2 dp
 strokes in brand amber on TV. The pointer retains ivory fill and an ink outline;
-its amber edge replaces the filled inset. Loading timing and navigation behavior
-are unchanged. Phone loading uses the theme accent.
+its amber edge follows the pointer shape. Phone loading uses the theme accent.
 
 ## Resources and download actions
 
