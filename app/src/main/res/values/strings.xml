@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name" translatable="false">WebMini</string>
+    <string name="app_name" translatable="false">OnePage</string>
     <string name="nav_home">Home</string>
     <string name="nav_back">Back</string>
     <string name="nav_reload">Reload</string>
@@ -16,6 +16,7 @@
     <string name="action_continue">Continue</string>
     <string name="action_cancel">Cancel</string>
     <string name="navigation_blocked">Navigation blocked</string>
+    <string name="navigation_ad_blocked">Redirect to an ad was blocked.</string>
     <string name="page_stopped">The page stopped. Enter its URL to reload.</string>
     <string name="popup_block_enabled">Block pop-ups: on</string>
     <string name="popup_block_disabled">Block pop-ups: off</string>
@@ -36,7 +37,7 @@
     <string name="download_http_warning">\n\nThis connection is not encrypted.</string>
     <string name="download_details">%1$s\n%2$s\n%3$s%4$s\n\nThe file will be saved to Downloads and will not open automatically.</string>
     <string name="action_download">Download</string>
-    <string name="download_description">Download requested in WebMini</string>
+    <string name="download_description">Download requested in OnePage</string>
     <string name="download_started">Download started</string>
     <string name="download_permission_denied">Permission denied; download canceled</string>
     <string name="favorites_full">Up to %d favorites. Choose the one to replace.</string>
@@ -66,4 +67,22 @@
     <string name="desktop_site_on">Desktop site: on</string>
     <string name="desktop_site_off">Desktop site: off</string>
     <string name="text_size">Text size: %1$d%%</string>
+    <string name="filter_preparing">Preparing ad blocking…</string>
+    <string name="filter_not_ready">Ad blocking is still loading. This page has reduced blocking.</string>
+    <string name="favorite_move_earlier">Move earlier</string>
+    <string name="favorite_move_later">Move later</string>
+    <string name="favorite_remove">Remove</string>
+    <string name="screen_margin">Screen margin: %1$d%%</string>
+    <string name="webview_old">The system WebView is version %1$d. Update Android System WebView for full ad blocking.</string>
+    <string name="menu_find">Find in page</string>
+    <string name="find_previous">Previous match</string>
+    <string name="find_next">Next match</string>
+    <string name="find_close">Close find in page</string>
+    <string name="find_count" translatable="false">%1$d/%2$d</string>
+    <string name="menu_go_to">Go to</string>
+    <string name="go_top">Top</string>
+    <string name="go_screen_up">Screen up</string>
+    <string name="go_screen_down">Screen down</string>
+    <string name="go_bottom">Bottom</string>
+    <string name="popup_form_blocked">A form sent to a new window was blocked.</string>
 </resources>

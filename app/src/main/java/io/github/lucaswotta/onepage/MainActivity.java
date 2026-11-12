@@ -1,4 +1,4 @@
-package io.github.lucaswotta.webmini;
+package io.github.lucaswotta.onepage;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -53,38 +53,18 @@ import android.text.style.TextAppearanceSpan;
 import android.widget.ScrollView;
 import org.json.JSONArray;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.io.ByteArrayInputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.net.URLEncoder;
 import java.util.Locale;
 import java.util.ArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class MainActivity extends Activity {
-    static {
-        System.loadLibrary("webmini_adblock");
-    }
-
     private static final String HOME = "https://www.google.com/";
-    private static final String ABOUT = "https://github.com/lucaswotta/webmini-androidtv";
+    private static final String ABOUT = "https://github.com/lucaswotta/onepage";
     private static final String BLANK = "about:blank";
     private static final String FAVORITES_KEY = "favorites";
     // Two rows of two buttons fit the 720p TV viewport; a third row is clipped.
     private static final int MAX_FAVORITES = 4;
-    private static final String EASYLIST_URL = "https://easylist.to/easylist/easylist.txt";
-    private static final String EASYPRIVACY_URL = "https://easylist.to/easylist/easyprivacy.txt";
-    private static final String[] FILTER_LIST_FILES =
-            {"easylist.txt", "easyprivacy.txt", "easylist-regional.txt"};
-    private static final int REGIONAL_LIST = 2;
     private static final int VOICE_REQUEST = 7;
     private static final String[][] SEARCH_ENGINES = {
             {"Google", "https://www.google.com/search?q="},
@@ -92,7 +72,6 @@ public class MainActivity extends Activity {
             {"Bing", "https://www.bing.com/search?q="},
             {"Brave", "https://search.brave.com/search?q="},
     };
-    private static final int MAX_FILTER_LIST_BYTES = 5 * 1024 * 1024;
     private static final byte[] EMPTY_BODY = new byte[0];
     private static final String[] AD_HOSTS = {
             "doubleclick.net", "googlesyndication.com", "googleadservices.com",
@@ -114,9 +93,19 @@ public class MainActivity extends Activity {
     private Button favoriteButton;
     private EditText homeSearch;
     private final ArrayList<String> favorites = new ArrayList<>();
+    private final java.util.HashMap<String, String> favoriteTitles = new java.util.HashMap<>();
+    private FrameLayout frame;
+    private int overscanPercent;
+    // Sec-Fetch-Dest, which tells the filter what kind of resource is requested, exists
+    // from Chromium 80; older WebViews classify requests by guesswork.
+    private static final int MIN_WEBVIEW_MAJOR = 80;
     private boolean homePage;
     private boolean tvMode;
     private LinearLayout toolbarView;
+    private LinearLayout findBar;
+    private EditText findField;
+    private TextView findCount;
+    private Button findNextButton;
     private boolean cursorShown = true;
     private long edgeScrollStarted;
     private int edgeScrollDirection;
@@ -131,7 +120,7 @@ public class MainActivity extends Activity {
     private static final long CURSOR_IDLE_MS = 2500;
     private View fullscreenView;
     private WebChromeClient.CustomViewCallback fullscreenCallback;
-    private volatile boolean adBlockEnabled;
+    private FilterEngine filterEngine;
     private boolean popupsBlocked;
     private boolean navigationErrorShown;
     private String pendingDownloadUrl;
@@ -147,15 +136,30 @@ public class MainActivity extends Activity {
     private int digitalY;
     private int digitalSpeed = 6;
     private boolean cursorTickScheduled;
-    private volatile String currentUrl = HOME;
-    private volatile boolean nativeFiltersReady;
-    // False while the engine was built without EasyList or EasyPrivacy.
-    private volatile boolean nativeFiltersComplete;
-    // The native engine is process-wide; only the newest Activity may replace or clear it.
-    private static final java.util.concurrent.atomic.AtomicInteger ENGINE_OWNER =
-            new java.util.concurrent.atomic.AtomicInteger();
-    private static final Object ENGINE_LOCK = new Object();
-    private int engineOwner;
+    private String currentUrl = HOME;
+    // Snapshot read once per request on WebView's network threads, so a request never mixes
+    // the URL of one navigation with the origin or the exemption of another.
+    private static final class PageContext {
+        final String url;
+        final boolean exempt;
+
+        PageContext(String url, boolean exempt) {
+            this.url = url;
+            this.exempt = exempt;
+        }
+    }
+    private volatile PageContext pageContext = new PageContext(HOME, false);
+    // First navigation waiting for the filter engine, so it is not loaded unfiltered.
+    private String heldUrl;
+    private static final long FILTER_WAIT_MS = 6000;
+    private final Runnable releaseHeldNavigation = () -> loadHeldNavigation(true);
+    // Hidden window that only reports where a window.open goes; at most one exists.
+    private WebView popupProbe;
+    private static final long POPUP_PROBE_MS = 10000;
+    private final Runnable popupProbeTimeout = this::discardPopupProbe;
+    private boolean resumed;
+    private int restoredScrollY;
+    private int nightMode;
     private static final String DESKTOP_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) "
             + "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
     private final java.util.concurrent.atomic.AtomicInteger blockedCount =
@@ -164,15 +168,12 @@ public class MainActivity extends Activity {
     private int textZoom = 100;
     private final java.util.Set<String> exemptOrigins =
             java.util.Collections.synchronizedSet(new java.util.HashSet<>());
-    private final ExecutorService adBlockExecutor = Executors.newSingleThreadExecutor();
-    private boolean adBlockInitializationRunning;
-    private boolean adBlockReloadRequested;
     private final Runnable hideLoading = () -> loadingLine.setVisibility(View.INVISIBLE);
     private final Runnable cursorTick = new Runnable() {
         @Override
         public void run() {
             cursorTickScheduled = false;
-            if (!tvMode || (analogX == 0 && analogY == 0
+            if (!tvMode || homePage || menuPanel != null || (analogX == 0 && analogY == 0
                     && digitalX == 0 && digitalY == 0)) return;
             revealCursor();
             moveCursorPixels(dp(6) * analogX + dp(digitalSpeed) * digitalX,
@@ -181,24 +182,23 @@ public class MainActivity extends Activity {
         }
     };
 
-    private static native void nativeBeginFilterLists();
-    private static native boolean nativeAddFilterList(String listText);
-    private static native boolean nativeFinishFilterLists();
-    private static native void nativeClearFilters();
-    private static native boolean nativeShouldBlock(String url, String pageUrl,
-            String resourceType, String method);
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         tvMode = getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
         if (tvMode) setTheme(R.style.TvTheme);
         super.onCreate(savedInstanceState);
-        engineOwner = ENGINE_OWNER.incrementAndGet();
-        adBlockEnabled = getPreferences(MODE_PRIVATE).getBoolean("adBlockEnabled", true);
+        nightMode = getResources().getConfiguration().uiMode
+                & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        filterEngine = new FilterEngine(getFilesDir(), getPreferences(MODE_PRIVATE),
+                installTime(), () -> runOnUiThread(() -> loadHeldNavigation(false)));
+        filterEngine.setEnabled(getPreferences(MODE_PRIVATE).getBoolean("adBlockEnabled", true));
         popupsBlocked = getPreferences(MODE_PRIVATE).getBoolean("popupsBlocked", true);
         desktopSite = getPreferences(MODE_PRIVATE).getBoolean("desktopSite", false);
         int savedZoom = getPreferences(MODE_PRIVATE).getInt("textZoom", 100);
         textZoom = savedZoom == 125 || savedZoom == 150 ? savedZoom : 100;
+        int savedOverscan = getPreferences(MODE_PRIVATE).getInt("overscanPercent", 0);
+        overscanPercent = savedOverscan == 2 || savedOverscan == 4 || savedOverscan == 6
+                ? savedOverscan : 0;
         loadFavorites();
 
         root = new FrameLayout(this);
@@ -286,6 +286,7 @@ public class MainActivity extends Activity {
         Button menu = button("⋮", toolbar);
         menu.setContentDescription(getString(R.string.nav_options));
         menu.setOnClickListener(view -> showMenu());
+        createFindBar();
 
         if (tvMode) {
             View line = new View(this);
@@ -294,12 +295,17 @@ public class MainActivity extends Activity {
         }
         content = new FrameLayout(this);
         page.addView(content, new LinearLayout.LayoutParams(-1, 0, 1));
-        setContentView(root);
+        frame = new FrameLayout(this);
+        if (tvMode) frame.setBackgroundColor(Color.BLACK);
+        frame.addView(root, new FrameLayout.LayoutParams(-1, -1));
+        applyOverscan();
+        setContentView(frame);
         if (tvMode) createCursor();
 
         String launchUrl = savedInstanceState == null ? incomingUrl(getIntent())
                 : savedInstanceState.getString("url");
-        currentUrl = launchUrl == null ? HOME : launchUrl;
+        setCurrentUrl(launchUrl == null ? HOME : launchUrl);
+        if (savedInstanceState != null) restoredScrollY = savedInstanceState.getInt("scrollY");
         if (launchUrl == null || (savedInstanceState != null
                 && savedInstanceState.getBoolean("homePage"))) {
             showHomePage();
@@ -310,7 +316,61 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 33) {
             getOnBackInvokedDispatcher().registerOnBackInvokedCallback(0, this::navigateBack);
         }
-        if (adBlockEnabled) initializeAdblock();
+    }
+
+    // Changes on every install or update, which is when a compiled engine may be stale.
+    private long installTime() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).lastUpdateTime;
+        } catch (PackageManager.NameNotFoundException error) {
+            throw new AssertionError(error);
+        }
+    }
+
+    // Some TVs crop the picture edges; the margin pulls the whole interface inward.
+    private void applyOverscan() {
+        android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
+        int horizontal = metrics.widthPixels * overscanPercent / 100;
+        int vertical = metrics.heightPixels * overscanPercent / 100;
+        frame.setPadding(horizontal, vertical, horizontal, vertical);
+    }
+
+    private int webViewMajorVersion() {
+        android.content.pm.PackageInfo provider = null;
+        if (Build.VERSION.SDK_INT >= 26) {
+            provider = WebView.getCurrentWebViewPackage();
+        } else {
+            // No API names the active provider before API 26; these are the two stock ones.
+            for (String name : new String[]{"com.google.android.webview", "com.android.webview"}) {
+                try {
+                    provider = getPackageManager().getPackageInfo(name, 0);
+                    break;
+                } catch (PackageManager.NameNotFoundException ignored) {
+                    // Try the next provider.
+                }
+            }
+        }
+        if (provider == null || provider.versionName == null) return -1;
+        try {
+            return Integer.parseInt(provider.versionName.split("\\.", 2)[0]);
+        } catch (NumberFormatException error) {
+            return -1;
+        }
+    }
+
+    // Shown once per WebView version, so it returns only after an update that is still old.
+    private void warnOldWebView() {
+        int major = webViewMajorVersion();
+        if (major < 0 || major >= MIN_WEBVIEW_MAJOR
+                || major == getPreferences(MODE_PRIVATE).getInt("webViewNotice", -1)) return;
+        getPreferences(MODE_PRIVATE).edit().putInt("webViewNotice", major).apply();
+        Toast.makeText(this, getString(R.string.webview_old, major), Toast.LENGTH_LONG).show();
+    }
+
+    private void setCurrentUrl(String url) {
+        currentUrl = url;
+        String origin = NavigationPolicy.origin(url);
+        pageContext = new PageContext(url, origin != null && exemptOrigins.contains(origin));
     }
 
     private Button button(String label, LinearLayout parent) {
@@ -334,6 +394,9 @@ public class MainActivity extends Activity {
             case "←": icon = R.drawable.ic_back; break;
             case "⟳": icon = R.drawable.ic_reload; break;
             case "⋮": icon = R.drawable.ic_menu; break;
+            case "▲": icon = R.drawable.ic_find_previous; break;
+            case "▼": icon = R.drawable.ic_find_next; break;
+            case "✕": icon = R.drawable.ic_close; break;
         }
         if (icon != 0) {
             button.setText("");
@@ -343,6 +406,95 @@ public class MainActivity extends Activity {
         }
         parent.addView(button, size);
         return button;
+    }
+
+    // Built once and hidden, so reopening it keeps the last query.
+    private void createFindBar() {
+        findBar = new LinearLayout(this);
+        findBar.setGravity(Gravity.CENTER);
+        findBar.setBackgroundColor(getResources().getColor(
+                tvMode ? R.color.tv_surface : R.color.ui_background));
+        findBar.setPadding(dp(tvMode ? 16 : 4), dp(4), dp(tvMode ? 16 : 4), dp(4));
+        findBar.setVisibility(View.GONE);
+        page.addView(findBar, new LinearLayout.LayoutParams(-1, -2));
+        findField = new EditText(this);
+        findField.setHint(R.string.menu_find);
+        findField.setSingleLine(true);
+        findField.setGravity(Gravity.CENTER_VERTICAL);
+        findField.setSelectAllOnFocus(true);
+        findField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_NORMAL);
+        findField.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
+        findField.setBackgroundResource(R.drawable.tv_address);
+        findField.setTextColor(getResources().getColor(tvMode ? R.color.tv_text : R.color.ui_text));
+        findField.setHintTextColor(getResources().getColor(tvMode ? R.color.tv_muted : R.color.ui_muted));
+        findField.setTextSize(tvMode ? 17 : 16);
+        findField.setPadding(dp(16), 0, dp(16), 0);
+        findField.setOnEditorActionListener((view, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH
+                    || (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
+                findInPage();
+                return true;
+            }
+            return false;
+        });
+        findBar.addView(findField, new LinearLayout.LayoutParams(0, dp(tvMode ? 48 : 44), 1));
+        findCount = new TextView(this);
+        findCount.setTextColor(getResources().getColor(tvMode ? R.color.tv_muted : R.color.ui_muted));
+        findCount.setTextSize(16);
+        findCount.setGravity(Gravity.CENTER);
+        findCount.setMinWidth(dp(72));
+        findCount.setPadding(dp(8), 0, dp(8), 0);
+        findBar.addView(findCount, new LinearLayout.LayoutParams(-2, -2));
+        Button previous = button("▲", findBar);
+        previous.setContentDescription(getString(R.string.find_previous));
+        previous.setOnClickListener(view -> {
+            if (webView != null) webView.findNext(false);
+        });
+        findNextButton = button("▼", findBar);
+        findNextButton.setContentDescription(getString(R.string.find_next));
+        findNextButton.setOnClickListener(view -> {
+            if (webView != null) webView.findNext(true);
+        });
+        Button close = button("✕", findBar);
+        close.setContentDescription(getString(R.string.find_close));
+        close.setOnClickListener(view -> closeFindBar());
+    }
+
+    private boolean findBarShown() {
+        return findBar != null && findBar.getVisibility() == View.VISIBLE;
+    }
+
+    private void showFindBar() {
+        if (webView == null) return;
+        webView.setFindListener((active, total, done) -> findCount.setText(
+                getString(R.string.find_count, total == 0 ? 0 : active + 1, total)));
+        findCount.setText("");
+        findBar.setVisibility(View.VISIBLE);
+        findField.requestFocus();
+        // The keyboard only attaches to a field that has been laid out.
+        findField.post(() -> {
+            if (findField.isFocused()) showSoftKeyboard(findField);
+        });
+    }
+
+    private void findInPage() {
+        String query = findField.getText().toString();
+        if (webView == null || query.isEmpty()) return;
+        webView.findAllAsync(query);
+        hideSoftKeyboard(findField);
+        // Each OK on this button then jumps to the next match.
+        findNextButton.requestFocus();
+    }
+
+    private void closeFindBar() {
+        if (!findBarShown()) return;
+        // Hiding the focused row would hand focus to the first toolbar button.
+        if (focusInside(findBar)) {
+            hideSoftKeyboard(findField);
+            focusPage();
+        }
+        findBar.setVisibility(View.GONE);
+        if (webView != null) webView.clearMatches();
     }
 
     private int dp(int value) {
@@ -365,6 +517,7 @@ public class MainActivity extends Activity {
     }
 
     private void showHomePage() {
+        closeFindBar();
         if (webView != null) {
             webView.stopLoading();
             if (webView.getParent() instanceof ViewGroup) {
@@ -373,9 +526,15 @@ public class MainActivity extends Activity {
             webView.destroy();
             webView = null;
         }
+        discardPopupProbe();
         homePage = true;
+        heldUrl = null;
+        root.removeCallbacks(releaseHeldNavigation);
+        loadingLine.removeCallbacks(hideLoading);
+        loadingLine.setVisibility(View.INVISIBLE);
+        stopPointer();
         if (address.isFocused()) address.clearFocus();
-        currentUrl = HOME;
+        setCurrentUrl(HOME);
         address.setText("");
         favoriteButton.setText("☆");
         favoriteButton.setEnabled(false);
@@ -493,8 +652,10 @@ public class MainActivity extends Activity {
                 for (int slot = i; slot < Math.min(i + 2, shownFavorites); slot++) {
                     String url = favorites.get(slot);
                     Button item = new Button(this);
-                    String host = Uri.parse(url).getHost();
-                    String displayHost = host == null ? url : host;
+                    String savedTitle = favoriteTitles.get(url);
+                    String host = savedTitle == null ? Uri.parse(url).getHost() : null;
+                    String displayHost = savedTitle != null ? savedTitle
+                            : host == null ? url : host;
                     String prefix = tvMode ? String.format(Locale.ROOT, "%02d   ", slot + 1) : "";
                     SpannableString destination = new SpannableString(prefix + displayHost);
                     android.content.res.ColorStateList secondary = getResources()
@@ -532,6 +693,11 @@ public class MainActivity extends Activity {
                     itemSize.setMargins(dp(4), dp(4), dp(4), dp(4));
                     row.addView(item, itemSize);
                     item.setOnClickListener(view -> navigateTo(url));
+                    int position = slot;
+                    item.setOnLongClickListener(view -> {
+                        manageFavorite(position);
+                        return true;
+                    });
                 }
             }
         }
@@ -615,11 +781,35 @@ public class MainActivity extends Activity {
     }
 
     private void loadConfirmedUrl(String url) {
+        root.removeCallbacks(releaseHeldNavigation);
+        if (filterEngine.isEnabled() && !filterEngine.isReady() && filterEngine.isLoading()) {
+            heldUrl = url;
+            address.setText(url);
+            showLoading();
+            Toast.makeText(this, R.string.filter_preparing, Toast.LENGTH_SHORT).show();
+            root.postDelayed(releaseHeldNavigation, FILTER_WAIT_MS);
+            return;
+        }
+        heldUrl = null;
         if (webView == null) createWebView(url);
         else {
             showLoading();
             webView.loadUrl(url);
         }
+    }
+
+    private void loadHeldNavigation(boolean timedOut) {
+        // A page created while the app is in the background would load and run there.
+        if (heldUrl == null || !resumed || isFinishing() || isDestroyed()) return;
+        if (!timedOut && !filterEngine.isReady() && filterEngine.isLoading()) return;
+        String url = heldUrl;
+        heldUrl = null;
+        root.removeCallbacks(releaseHeldNavigation);
+        if (filterEngine.isEnabled() && !filterEngine.isReady()) {
+            Toast.makeText(this, R.string.filter_not_ready, Toast.LENGTH_LONG).show();
+        }
+        if (webView == null) createWebView(url);
+        else webView.loadUrl(url);
     }
 
     private boolean needsHttpWarning(String url) {
@@ -644,15 +834,33 @@ public class MainActivity extends Activity {
         return true;
     }
 
+    // The network filter leaves main-frame requests alone, so a script or redirect could
+    // move the tab to an ad without a click. Same-site moves are never checked, which keeps
+    // sign-in hops between subdomains out of the filter's reach.
+    private boolean isAdRedirect(WebResourceRequest request) {
+        if (!request.isForMainFrame() || request.hasGesture()) return false;
+        PageContext context = pageContext;
+        String url = request.getUrl().toString();
+        // List rules skip the "document" type unless they name it, so the destination is
+        // judged as the frame it would be if the page had embedded it.
+        return !context.exempt && NavigationPolicy.isCrossSite(context.url, url)
+                && filterEngine.isEnabled() && filterEngine.isReady()
+                && filterEngine.shouldBlock(url, context.url, "subdocument", "GET");
+    }
+
     private void loadFavorites() {
         favorites.clear();
         String saved = getPreferences(MODE_PRIVATE).getString(FAVORITES_KEY, "[]");
         try {
             JSONArray urls = new JSONArray(saved);
             for (int i = 0; i < urls.length(); i++) {
-                String url = urls.optString(i);
+                // 0.3.x and earlier stored plain URLs; later versions store the title too.
+                org.json.JSONObject entry = urls.optJSONObject(i);
+                String url = entry == null ? urls.optString(i) : entry.optString("url");
                 if (url.startsWith("https://") || url.startsWith("http://")) {
                     favorites.add(url);
+                    String title = entry == null ? "" : entry.optString("title").trim();
+                    if (!title.isEmpty()) favoriteTitles.put(url, title);
                 }
             }
         } catch (org.json.JSONException ignored) {
@@ -662,12 +870,27 @@ public class MainActivity extends Activity {
 
     private void persistFavorites() {
         JSONArray urls = new JSONArray();
-        for (String url : favorites) urls.put(url);
+        favoriteTitles.keySet().retainAll(favorites);
+        try {
+            for (String url : favorites) {
+                org.json.JSONObject entry = new org.json.JSONObject().put("url", url);
+                String title = favoriteTitles.get(url);
+                if (title != null) entry.put("title", title);
+                urls.put(entry);
+            }
+        } catch (org.json.JSONException error) {
+            throw new AssertionError(error);
+        }
         getPreferences(MODE_PRIVATE).edit().putString(FAVORITES_KEY, urls.toString()).apply();
     }
 
     private void toggleFavorite() {
         if (webView == null || currentUrl == null || !currentUrl.startsWith("http")) return;
+        String pageTitle = webView.getTitle();
+        if (pageTitle != null && !pageTitle.trim().isEmpty() && !pageTitle.equals(currentUrl)
+                && !favorites.contains(currentUrl)) {
+            favoriteTitles.put(currentUrl, pageTitle.trim());
+        }
         if (favorites.contains(currentUrl)) {
             favorites.remove(currentUrl);
         } else if (favorites.size() >= MAX_FAVORITES) {
@@ -686,8 +909,45 @@ public class MainActivity extends Activity {
     }
 
     private void chooseFavorite(String title, Choice choice) {
-        String[] entries = favorites.toArray(new String[0]);
+        String[] entries = new String[favorites.size()];
+        for (int i = 0; i < entries.length; i++) {
+            String saved = favoriteTitles.get(favorites.get(i));
+            entries[i] = saved == null ? favorites.get(i) : saved;
+        }
         showChoices(title, entries, choice);
+    }
+
+    // Opened by holding OK on a favorite, so the grid can be arranged with the remote alone.
+    private void manageFavorite(int position) {
+        if (position >= favorites.size()) return;
+        String url = favorites.get(position);
+        ArrayList<String> labels = new ArrayList<>();
+        ArrayList<Runnable> actions = new ArrayList<>();
+        labels.add(getString(R.string.action_open));
+        actions.add(() -> navigateTo(url));
+        if (position > 0) {
+            labels.add(getString(R.string.favorite_move_earlier));
+            actions.add(() -> moveFavorite(position, position - 1));
+        }
+        if (position < Math.min(favorites.size(), MAX_FAVORITES) - 1) {
+            labels.add(getString(R.string.favorite_move_later));
+            actions.add(() -> moveFavorite(position, position + 1));
+        }
+        labels.add(getString(R.string.favorite_remove));
+        actions.add(() -> {
+            favorites.remove(position);
+            persistFavorites();
+            showHomePage();
+        });
+        String saved = favoriteTitles.get(url);
+        showChoices(saved == null ? url : saved, labels.toArray(new String[0]),
+                which -> actions.get(which).run());
+    }
+
+    private void moveFavorite(int from, int to) {
+        favorites.add(to, favorites.remove(from));
+        persistFavorites();
+        showHomePage();
     }
 
     private void removeFavorite() {
@@ -727,6 +987,7 @@ public class MainActivity extends Activity {
     }
 
     private void createWebView(String url) {
+        warnOldWebView();
         content.removeAllViews();
         navigationErrorShown = false;
         webView = new WebView(this);
@@ -753,6 +1014,11 @@ public class MainActivity extends Activity {
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                if (isAdRedirect(request)) {
+                    Toast.makeText(MainActivity.this, R.string.navigation_ad_blocked,
+                            Toast.LENGTH_SHORT).show();
+                    return true;
+                }
                 return overrideNavigation(request.getUrl().toString(), request.isForMainFrame(),
                         request.getMethod());
             }
@@ -773,18 +1039,30 @@ public class MainActivity extends Activity {
                 if (view == webView && !BLANK.equals(pageUrl)) {
                     navigationErrorShown = false;
                     blockedCount.set(0);
-                    currentUrl = pageUrl;
+                    setCurrentUrl(pageUrl);
                     if (loadingLine.getVisibility() != View.VISIBLE) showLoading();
                 }
+                if (view == webView) closeFindBar();
                 if (view == webView && tvMode) view.requestFocus();
             }
 
             @Override
             public void onPageFinished(WebView view, String pageUrl) {
                 if (view == webView && !pageUrl.equals(BLANK)) {
-                    currentUrl = pageUrl;
+                    setCurrentUrl(pageUrl);
                     address.setText(pageUrl);
                     updateFavoriteButton();
+                    if (restoredScrollY > 0) {
+                        int scrollY = restoredScrollY;
+                        restoredScrollY = 0;
+                        // The page has no height to scroll until its first frame is drawn.
+                        view.postVisualStateCallback(0, new WebView.VisualStateCallback() {
+                            @Override
+                            public void onComplete(long requestId) {
+                                if (view == webView) view.scrollTo(0, scrollY);
+                            }
+                        });
+                    }
                 }
                 if (view == webView) {
                     loadingLine.removeCallbacks(hideLoading);
@@ -805,24 +1083,19 @@ public class MainActivity extends Activity {
                 createWebView(BLANK);
                 address.setText(currentUrl);
                 Toast.makeText(MainActivity.this, R.string.page_stopped, Toast.LENGTH_LONG).show();
-                showNavigationError(webView, false);
+                String stoppedUrl = currentUrl;
+                showNavigationError(webView, () -> loadConfirmedUrl(stoppedUrl));
                 return true;
             }
 
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request,
                                         WebResourceError error) {
+                // Only transport failures land here. An HTTP error status comes with the
+                // server's own document, which stays on screen.
                 if (request.isForMainFrame()) {
-                    showNavigationError(view, "GET".equalsIgnoreCase(request.getMethod()));
-                }
-            }
-
-            @Override
-            public void onReceivedHttpError(WebView view, WebResourceRequest request,
-                                            WebResourceResponse response) {
-                int status = response.getStatusCode();
-                if (request.isForMainFrame() && status >= 400 && status != 401 && status != 407) {
-                    showNavigationError(view, "GET".equalsIgnoreCase(request.getMethod()));
+                    showNavigationError(view, "GET".equalsIgnoreCase(request.getMethod())
+                            ? MainActivity.this::reloadPage : null);
                 }
             }
         });
@@ -830,33 +1103,26 @@ public class MainActivity extends Activity {
             @Override
             public void onProgressChanged(WebView view, int progress) {
                 if (view != webView || loadingLine.getVisibility() != View.VISIBLE) return;
-                loadingLine.animate().scaleX(Math.max(0.2f, progress / 100f))
-                        .setDuration(150).start();
+                // A new animation per progress step would restart on every callback.
+                loadingLine.animate().cancel();
+                loadingLine.setScaleX(Math.max(0.2f, progress / 100f));
             }
 
             @Override
             public boolean onCreateWindow(WebView view, boolean isDialog,
                                           boolean isUserGesture, Message resultMsg) {
-                String link = isUserGesture && !isDialog
-                        ? view.getHitTestResult().getExtra() : null;
-                if (link != null && (link.startsWith("https://") || link.startsWith("http://"))) {
-                    view.post(() -> {
-                        Runnable openLink = () -> {
-                            if (webView != null) navigateTo(link);
-                        };
-                        if (popupsBlocked) {
-                            showConfirmation(getString(R.string.popup_open_title),
-                                    getString(R.string.popup_open_message, Uri.parse(link).getHost()),
-                                    getString(R.string.action_open), getString(R.string.action_block), openLink);
-                        } else {
-                            openLink.run();
-                        }
-                    });
-                } else {
-                    view.post(() -> Toast.makeText(MainActivity.this,
-                            R.string.popup_unknown_blocked, Toast.LENGTH_LONG).show());
+                if (!isUserGesture) {
+                    showPopupBlocked();
+                    return false;
                 }
-                return false;
+                // The tapped element's href is not where a scripted window.open goes, so a
+                // hidden window receives the navigation only to learn its real destination.
+                discardPopupProbe();
+                popupProbe = createPopupProbe();
+                root.postDelayed(popupProbeTimeout, POPUP_PROBE_MS);
+                ((WebView.WebViewTransport) resultMsg.obj).setWebView(popupProbe);
+                resultMsg.sendToTarget();
+                return true;
             }
 
             @Override
@@ -908,7 +1174,106 @@ public class MainActivity extends Activity {
         webView.loadUrl(url);
     }
 
-    private void showNavigationError(WebView failedView, boolean canRetry) {
+    private WebView createPopupProbe() {
+        WebView probe = new WebView(this);
+        probe.getSettings().setJavaScriptEnabled(false);
+        probe.setWebViewClient(new WebViewClient() {
+            // Nothing is fetched for the hidden window, so the destination sets no cookie
+            // and runs nothing before the user decides. A URL given straight to window.open
+            // loads without asking for an override, and only this request tells a form
+            // submission from a link: reopening a POST as GET would drop what was sent.
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view,
+                                                               WebResourceRequest request) {
+                if (request.isForMainFrame()) {
+                    String url = request.getUrl().toString();
+                    if ("GET".equalsIgnoreCase(request.getMethod())) {
+                        takePopupDestination(view, url);
+                    } else {
+                        root.post(() -> {
+                            if (view != popupProbe) return;
+                            discardPopupProbe();
+                            Toast.makeText(MainActivity.this, R.string.popup_form_blocked,
+                                    Toast.LENGTH_LONG).show();
+                        });
+                    }
+                }
+                return new WebResourceResponse("text/plain", "UTF-8",
+                        new ByteArrayInputStream(EMPTY_BODY));
+            }
+
+            // Without this the default handler ends the whole app when the hidden
+            // window's renderer dies.
+            @Override
+            public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                if (view == popupProbe) {
+                    root.removeCallbacks(popupProbeTimeout);
+                    popupProbe = null;
+                }
+                view.destroy();
+                return true;
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                if (request.isForMainFrame()) takePopupDestination(view, request.getUrl().toString());
+                return true;
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                takePopupDestination(view, url);
+                return true;
+            }
+        });
+        return probe;
+    }
+
+    // Pages often open about:blank first and set the address afterwards, so the blank
+    // document is skipped and the probe waits for the next URL or the timeout.
+    private void takePopupDestination(WebView probe, String url) {
+        if (url == null || BLANK.equals(url)) return;
+        // Called from WebView's network thread too, and a WebView destroyed from inside its
+        // own callback can crash, so the rest runs later on the UI thread.
+        root.post(() -> {
+            if (probe != popupProbe) return;
+            discardPopupProbe();
+            openPopup(url);
+        });
+    }
+
+    private void discardPopupProbe() {
+        root.removeCallbacks(popupProbeTimeout);
+        if (popupProbe == null) return;
+        popupProbe.stopLoading();
+        popupProbe.destroy();
+        popupProbe = null;
+    }
+
+    private void openPopup(String url) {
+        if (webView == null) return;
+        if (NavigationPolicy.origin(url) == null) {
+            showPopupBlocked();
+            return;
+        }
+        if (popupsBlocked) {
+            showConfirmation(getString(R.string.popup_open_title),
+                    getString(R.string.popup_open_message, Uri.parse(url).getHost()),
+                    getString(R.string.action_open), getString(R.string.action_block), () -> {
+                        if (webView != null) navigateTo(url);
+                    });
+        } else {
+            navigateTo(url);
+        }
+    }
+
+    private void showPopupBlocked() {
+        root.post(() -> Toast.makeText(this, R.string.popup_unknown_blocked,
+                Toast.LENGTH_LONG).show());
+    }
+
+    private void showNavigationError(WebView failedView, Runnable retry) {
+        boolean canRetry = retry != null;
         String failedUrl = currentUrl;
         failedView.post(() -> {
             if (failedView != webView || isFinishing() || isDestroyed()
@@ -923,7 +1288,7 @@ public class MainActivity extends Activity {
                     : new String[]{getString(R.string.edit_address), getString(R.string.nav_home)};
             showChoices(actions, which -> {
                 if (failedView != webView || !failedUrl.equals(currentUrl)) return;
-                if (canRetry && which == 0) reloadPage();
+                if (canRetry && which == 0) retry.run();
                 else if (which == (canRetry ? 1 : 0)) {
                     address.setText(failedUrl);
                     address.requestFocus();
@@ -1052,14 +1417,16 @@ public class MainActivity extends Activity {
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         int key = event.getKeyCode();
+        if (jumpPage(event) || controlMedia(event)) return true;
         EditText editor = tvMode ? focusedEditor() : null;
         if (tvMode && key == KeyEvent.KEYCODE_BUTTON_B) {
             if (event.getAction() == KeyEvent.ACTION_UP) {
                 // Leaving a half-typed address or the toolbar first keeps Back from
                 // navigating away while the user is still editing.
-                if (editor != null) leaveEditor(editor);
-                else if (toolbarHasFocus() && menuPanel == null) leaveToolbar();
-                else navigateBack();
+                if (editor != null && editor != findField) leaveEditor(editor);
+                else if (toolbarHasFocus() && !focusInside(findBar) && menuPanel == null) {
+                    leaveToolbar();
+                } else navigateBack();
             }
             return true;
         }
@@ -1080,9 +1447,18 @@ public class MainActivity extends Activity {
                 }
                 return true;
             }
-            if (!homePage && key == KeyEvent.KEYCODE_DPAD_DOWN
+            if (!homePage && (key == KeyEvent.KEYCODE_DPAD_DOWN
+                            || (key == KeyEvent.KEYCODE_DPAD_UP && editor == findField))
                     && event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
-                leaveEditor(editor);
+                if (key == KeyEvent.KEYCODE_DPAD_UP) {
+                    hideSoftKeyboard(editor);
+                    address.requestFocus();
+                } else if (editor == address && findBarShown()) {
+                    hideSoftKeyboard(editor);
+                    findField.requestFocus();
+                } else {
+                    leaveEditor(editor);
+                }
                 return true;
             }
             if (!keyboardAcceptingText() && event.getAction() == KeyEvent.ACTION_DOWN
@@ -1098,7 +1474,15 @@ public class MainActivity extends Activity {
             if (key == KeyEvent.KEYCODE_DPAD_UP
                     || (key == KeyEvent.KEYCODE_DPAD_DOWN
                             && event.getAction() == KeyEvent.ACTION_DOWN)) {
-                if (key == KeyEvent.KEYCODE_DPAD_DOWN) leaveToolbar();
+                boolean inFindBar = focusInside(findBar);
+                if (key == KeyEvent.KEYCODE_DPAD_UP && inFindBar
+                        && event.getAction() == KeyEvent.ACTION_DOWN) {
+                    address.requestFocus();
+                } else if (key == KeyEvent.KEYCODE_DPAD_DOWN && !inFindBar && findBarShown()) {
+                    findField.requestFocus();
+                } else if (key == KeyEvent.KEYCODE_DPAD_DOWN) {
+                    leaveToolbar();
+                }
                 return true;
             }
             return super.dispatchKeyEvent(event);
@@ -1147,9 +1531,67 @@ public class MainActivity extends Activity {
         return super.dispatchKeyEvent(event);
     }
 
+    // Long pages are slow to cross with the pointer. While a field is being edited the same
+    // keys belong to the text, and in fullscreen to the video.
+    private boolean jumpPage(KeyEvent event) {
+        int key = event.getKeyCode();
+        boolean down = key == KeyEvent.KEYCODE_PAGE_DOWN || key == KeyEvent.KEYCODE_CHANNEL_DOWN
+                || key == KeyEvent.KEYCODE_MOVE_END;
+        boolean up = key == KeyEvent.KEYCODE_PAGE_UP || key == KeyEvent.KEYCODE_CHANNEL_UP
+                || key == KeyEvent.KEYCODE_MOVE_HOME;
+        if ((!down && !up) || webView == null || homePage || menuPanel != null
+                || fullscreenView != null || focusedEditor() != null || keyboardAcceptingText()) {
+            return false;
+        }
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            boolean whole = key == KeyEvent.KEYCODE_MOVE_HOME || key == KeyEvent.KEYCODE_MOVE_END;
+            if (down) webView.pageDown(whole);
+            else webView.pageUp(whole);
+        }
+        return true;
+    }
+
+    // Acts on the element that is playing, else on the first one, since most pages have a
+    // single player. The step keys exist from API 24; older systems never send them.
+    private boolean controlMedia(KeyEvent event) {
+        String action;
+        boolean seek = false;
+        switch (event.getKeyCode()) {
+            case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
+                action = "if(m.paused||m.ended)play();else m.pause();";
+                break;
+            case KeyEvent.KEYCODE_MEDIA_PLAY: action = "play();"; break;
+            case KeyEvent.KEYCODE_MEDIA_PAUSE: action = "m.pause();"; break;
+            case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD:
+            case KeyEvent.KEYCODE_MEDIA_SKIP_FORWARD:
+            case KeyEvent.KEYCODE_MEDIA_STEP_FORWARD:
+                action = "m.currentTime+=10;";
+                seek = true;
+                break;
+            case KeyEvent.KEYCODE_MEDIA_REWIND:
+            case KeyEvent.KEYCODE_MEDIA_SKIP_BACKWARD:
+            case KeyEvent.KEYCODE_MEDIA_STEP_BACKWARD:
+                action = "m.currentTime-=10;";
+                seek = true;
+                break;
+            default: return false;
+        }
+        if (webView == null || homePage) return false;
+        if (event.getAction() == KeyEvent.ACTION_DOWN && (seek || event.getRepeatCount() == 0)) {
+            // Settings require a user gesture to start media, so play() may be refused; the
+            // rejected promise is caught so it does not surface as a page error.
+            webView.evaluateJavascript("(function(){var all=document.querySelectorAll('video,audio'),"
+                    + "m=all[0];for(var i=0;i<all.length;i++){if(!all[i].paused&&!all[i].ended)"
+                    + "{m=all[i];break;}}if(!m)return;function play(){var p=m.play();"
+                    + "if(p&&p.catch)p.catch(function(){});}" + action + "})()", null);
+        }
+        return true;
+    }
+
     private EditText focusedEditor() {
         if (address != null && address.isFocused()) return address;
         if (homeSearch != null && homeSearch.isFocused()) return homeSearch;
+        if (findField != null && findField.isFocused()) return findField;
         return null;
     }
 
@@ -1167,11 +1609,16 @@ public class MainActivity extends Activity {
         }
     }
 
-    // Derived from the real focus so it cannot drift from what the user sees.
+    // The find bar counts as toolbar: in both rows the D-pad moves focus, not the pointer.
     private boolean toolbarHasFocus() {
+        return focusInside(toolbarView) || focusInside(findBar);
+    }
+
+    // Derived from the real focus so it cannot drift from what the user sees.
+    private boolean focusInside(View container) {
         View focused = getCurrentFocus();
-        while (focused != null && toolbarView != null) {
-            if (focused == toolbarView) return true;
+        while (focused != null && container != null) {
+            if (focused == container) return true;
             focused = focused.getParent() instanceof View ? (View) focused.getParent() : null;
         }
         return false;
@@ -1182,13 +1629,17 @@ public class MainActivity extends Activity {
         if (webView != null) webView.requestFocus();
     }
 
-    private void leaveEditor(EditText editor) {
-        focusPage();
+    private void hideSoftKeyboard(View view) {
         InputMethodManager inputMethod = (InputMethodManager)
                 getSystemService(INPUT_METHOD_SERVICE);
         if (inputMethod != null) {
-            inputMethod.hideSoftInputFromWindow(editor.getWindowToken(), 0);
+            inputMethod.hideSoftInputFromWindow(view.getWindowToken(), 0);
         }
+    }
+
+    private void leaveEditor(EditText editor) {
+        focusPage();
+        hideSoftKeyboard(editor);
         if (!homePage) revealCursor();
     }
 
@@ -1215,24 +1666,30 @@ public class MainActivity extends Activity {
     }
 
     private int adBlockStateLabel() {
-        if (!adBlockEnabled) return R.string.tracker_block_disabled;
-        if (nativeFiltersReady && nativeFiltersComplete) return R.string.tracker_block_enabled;
-        synchronized (this) {
-            return adBlockInitializationRunning
-                    ? R.string.tracker_block_loading : R.string.tracker_block_reduced;
+        if (!filterEngine.isEnabled()) return R.string.tracker_block_disabled;
+        if (filterEngine.isReady() && filterEngine.isComplete()) {
+            return R.string.tracker_block_enabled;
         }
+        return filterEngine.isLoading()
+                ? R.string.tracker_block_loading : R.string.tracker_block_reduced;
     }
 
     private void showMenu() {
         String adBlockLabel = getString(adBlockStateLabel());
         int blocked = blockedCount.get();
-        if (adBlockEnabled && blocked > 0 && !homePage) adBlockLabel += " (" + blocked + ")";
+        if (filterEngine.isEnabled() && blocked > 0 && !homePage) adBlockLabel += " (" + blocked + ")";
         ArrayList<String> labels = new ArrayList<>();
         ArrayList<Runnable> actions = new ArrayList<>();
         labels.add(getString(R.string.menu_forward));
         actions.add(() -> {
             if (webView != null && webView.canGoForward()) webView.goForward();
         });
+        if (!homePage && webView != null) {
+            labels.add(getString(R.string.menu_find));
+            actions.add(this::showFindBar);
+            labels.add(getString(R.string.menu_go_to));
+            actions.add(this::goToMenu);
+        }
         labels.add(getString(popupsBlocked
                 ? R.string.popup_block_enabled : R.string.popup_block_disabled));
         actions.add(() -> {
@@ -1255,11 +1712,23 @@ public class MainActivity extends Activity {
         showChoices(labels.toArray(new String[0]), which -> actions.get(which).run());
     }
 
+    // The same jumps as the page and channel keys, for remotes that lack them.
+    private void goToMenu() {
+        String[] entries = {getString(R.string.go_top), getString(R.string.go_screen_up),
+                getString(R.string.go_screen_down), getString(R.string.go_bottom)};
+        showChoices(entries, which -> {
+            if (webView == null) return;
+            if (which <= 1) webView.pageUp(which == 0);
+            else webView.pageDown(which == 3);
+        });
+    }
+
     private void preferencesMenu() {
         String[] entries = {
                 getString(R.string.menu_search_engine, SEARCH_ENGINES[searchEngineIndex()][0]),
                 getString(desktopSite ? R.string.desktop_site_on : R.string.desktop_site_off),
-                getString(R.string.text_size, textZoom)};
+                getString(R.string.text_size, textZoom),
+                getString(R.string.screen_margin, overscanPercent)};
         showChoices(entries, which -> {
             if (which == 0) chooseSearchEngine();
             if (which == 1) {
@@ -1275,6 +1744,12 @@ public class MainActivity extends Activity {
                 getPreferences(MODE_PRIVATE).edit().putInt("textZoom", textZoom).apply();
                 if (webView != null) applyViewSettings(webView.getSettings());
             }
+            if (which == 3) {
+                overscanPercent = overscanPercent >= 6 ? 0 : overscanPercent + 2;
+                getPreferences(MODE_PRIVATE).edit().putInt("overscanPercent", overscanPercent)
+                        .apply();
+                applyOverscan();
+            }
         });
     }
 
@@ -1289,7 +1764,7 @@ public class MainActivity extends Activity {
 
     private void adBlockMenu() {
         String origin = NavigationPolicy.origin(currentUrl);
-        boolean siteMenu = adBlockEnabled && !homePage && origin != null;
+        boolean siteMenu = filterEngine.isEnabled() && !homePage && origin != null;
         ArrayList<String> labels = new ArrayList<>();
         ArrayList<Runnable> actions = new ArrayList<>();
         labels.add(getString(adBlockStateLabel()));
@@ -1301,6 +1776,7 @@ public class MainActivity extends Activity {
             actions.add(() -> {
                 if (exempt) exemptOrigins.remove(origin);
                 else exemptOrigins.add(origin);
+                setCurrentUrl(currentUrl);
                 reloadPage();
             });
         }
@@ -1310,27 +1786,14 @@ public class MainActivity extends Activity {
     }
 
     private void toggleAdBlock() {
-        adBlockEnabled = !adBlockEnabled;
-        getPreferences(MODE_PRIVATE).edit().putBoolean("adBlockEnabled", adBlockEnabled).apply();
-        if (adBlockEnabled) {
-            initializeAdblock();
-        } else {
-            nativeFiltersReady = false;
-            adBlockExecutor.execute(this::clearEngineIfOwner);
-        }
+        boolean enabled = !filterEngine.isEnabled();
+        getPreferences(MODE_PRIVATE).edit().putBoolean("adBlockEnabled", enabled).apply();
+        filterEngine.setEnabled(enabled);
         if (webView != null) reloadPage();
     }
 
-    private static final String[] REGIONAL_CHOICES = {"auto", "pt", "es", "none"};
-
-    private String regionalChoice() {
-        String saved = getPreferences(MODE_PRIVATE).getString("regionalList", "auto");
-        for (String choice : REGIONAL_CHOICES) if (choice.equals(saved)) return saved;
-        return "auto";
-    }
-
     private String regionalListName() {
-        switch (regionalChoice()) {
+        switch (filterEngine.regionalChoice()) {
             case "pt": return getString(R.string.regional_pt);
             case "es": return getString(R.string.regional_es);
             case "none": return getString(R.string.regional_none);
@@ -1343,8 +1806,8 @@ public class MainActivity extends Activity {
                 getString(R.string.regional_es), getString(R.string.regional_none)};
         showChoices(names, which -> {
             getPreferences(MODE_PRIVATE).edit()
-                    .putString("regionalList", REGIONAL_CHOICES[which]).apply();
-            if (adBlockEnabled) initializeAdblock();
+                    .putString("regionalList", FilterEngine.REGIONAL_CHOICES[which]).apply();
+            filterEngine.load();
         });
     }
 
@@ -1432,198 +1895,17 @@ public class MainActivity extends Activity {
             return new WebResourceResponse("text/plain", "UTF-8", 403, "Blocked",
                     new java.util.HashMap<>(), new ByteArrayInputStream(EMPTY_BODY));
         }
-        if (!adBlockEnabled || request.isForMainFrame()) return null;
-        String pageOrigin = NavigationPolicy.origin(currentUrl);
-        if (pageOrigin != null && exemptOrigins.contains(pageOrigin)) return null;
-        String resourceUrl = request.getUrl().toString();
-        boolean blocked = nativeFiltersReady && nativeShouldBlock(resourceUrl, currentUrl,
-                requestType(request), request.getMethod());
-        if (!blocked && (!nativeFiltersReady || !adBlockEnabled)) {
-            blocked = isAdHost(request.getUrl().getHost());
-        }
+        if (!filterEngine.isEnabled() || request.isForMainFrame()) return null;
+        PageContext context = pageContext;
+        if (context.exempt) return null;
+        boolean blocked = filterEngine.isReady()
+                ? filterEngine.shouldBlock(request.getUrl().toString(), context.url,
+                        requestType(request), request.getMethod())
+                : isAdHost(request.getUrl().getHost());
         if (!blocked) return null;
         blockedCount.incrementAndGet();
         return new WebResourceResponse("text/plain", "UTF-8",
                 new ByteArrayInputStream(EMPTY_BODY));
-    }
-
-    private void initializeAdblock() {
-        synchronized (this) {
-            if (!adBlockEnabled) return;
-            if (adBlockInitializationRunning) {
-                adBlockReloadRequested = true;
-                return;
-            }
-            adBlockInitializationRunning = true;
-        }
-        adBlockExecutor.execute(() -> {
-            try {
-                String[] lists = readCachedFilterLists();
-                boolean hasCachedLists = lists[0] != null || lists[1] != null;
-                if (hasCachedLists && adBlockEnabled) installFilterLists(lists);
-                if (filterListsStale(lists)) updateFilterLists(lists);
-            } finally {
-                boolean retry;
-                synchronized (this) {
-                    adBlockInitializationRunning = false;
-                    retry = adBlockReloadRequested && adBlockEnabled;
-                    adBlockReloadRequested = false;
-                }
-                if (retry) initializeAdblock();
-            }
-        });
-    }
-
-    private String regionalLanguage() {
-        String choice = regionalChoice();
-        if (choice.equals("auto")) return Locale.getDefault().getLanguage();
-        return choice.equals("none") ? "" : choice;
-    }
-
-    private String regionalListUrl() {
-        return FilterLists.regionalUrl(regionalLanguage());
-    }
-
-    private boolean regionalListCached() {
-        return regionalListUrl() != null && regionalLanguage().equals(
-                getPreferences(MODE_PRIVATE).getString("regionalListLanguage", ""));
-    }
-
-    private String[] readCachedFilterLists() {
-        String[] lists = new String[FILTER_LIST_FILES.length];
-        for (int i = 0; i < FILTER_LIST_FILES.length; i++) {
-            if (i == REGIONAL_LIST && !regionalListCached()) continue;
-            File file = new File(getFilesDir(), FILTER_LIST_FILES[i]);
-            if (!file.isFile() || file.length() <= 0 || file.length() > MAX_FILTER_LIST_BYTES) continue;
-            try (InputStream input = new FileInputStream(file);
-                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-                copyLimited(input, output);
-                lists[i] = output.toString(StandardCharsets.UTF_8.name());
-                if (!FilterLists.isValid(lists[i])) lists[i] = null;
-            } catch (IOException ignored) {
-                lists[i] = null;
-            }
-        }
-        return lists;
-    }
-
-    private boolean filterListStale(int index, String[] cachedLists) {
-        if (index == REGIONAL_LIST && regionalListUrl() == null) return false;
-        if (cachedLists[index] == null) return true;
-        long updatedAt = getPreferences(MODE_PRIVATE).getLong("filterListUpdatedAt" + index, 0);
-        return FilterLists.isStale(updatedAt, System.currentTimeMillis());
-    }
-
-    private boolean filterListsStale(String[] cachedLists) {
-        for (int i = 0; i < FILTER_LIST_FILES.length; i++) {
-            if (filterListStale(i, cachedLists)) return true;
-        }
-        return false;
-    }
-
-    private void updateFilterLists(String[] cachedLists) {
-        String regionalLanguage = regionalLanguage();
-        String[] urls = {EASYLIST_URL, EASYPRIVACY_URL, FilterLists.regionalUrl(regionalLanguage)};
-        boolean updated = false;
-        for (int i = 0; i < urls.length; i++) {
-            if (!adBlockEnabled) return;
-            if (urls[i] == null || !filterListStale(i, cachedLists)) continue;
-            String downloaded = downloadFilterList(urls[i]);
-            if (downloaded == null) continue;
-            // The user may have switched region while this list downloaded.
-            if (i == REGIONAL_LIST && !regionalLanguage.equals(regionalLanguage())) continue;
-            // Keep the download in memory even if storage is full.
-            cachedLists[i] = downloaded;
-            updated = true;
-            try {
-                saveFilterList(i, downloaded);
-            } catch (IOException ignored) {
-                continue;
-            }
-            android.content.SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE).edit()
-                    .putLong("filterListUpdatedAt" + i, System.currentTimeMillis());
-            if (i == REGIONAL_LIST) {
-                editor.putString("regionalListLanguage", regionalLanguage);
-            }
-            editor.apply();
-        }
-        if (updated && adBlockEnabled) installFilterLists(cachedLists);
-    }
-
-    private String downloadFilterList(String url) {
-        HttpURLConnection connection = null;
-        try {
-            connection = (HttpURLConnection) new URL(url).openConnection();
-            connection.setConnectTimeout(12000);
-            connection.setReadTimeout(20000);
-            connection.setInstanceFollowRedirects(true);
-            connection.setRequestProperty("User-Agent", "WebMini/1.0 filter-list updater");
-            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK
-                    || !"https".equalsIgnoreCase(connection.getURL().getProtocol())) return null;
-            try (InputStream input = connection.getInputStream();
-                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-                copyLimited(input, output);
-                String contents = output.toString(StandardCharsets.UTF_8.name());
-                return FilterLists.isValid(contents) ? contents : null;
-            }
-        } catch (IOException ignored) {
-            return null;
-        } finally {
-            if (connection != null) connection.disconnect();
-        }
-    }
-
-    private void copyLimited(InputStream input, ByteArrayOutputStream output) throws IOException {
-        byte[] buffer = new byte[8192];
-        int total = 0;
-        int count;
-        while ((count = input.read(buffer)) != -1) {
-            total += count;
-            if (total > MAX_FILTER_LIST_BYTES) throw new IOException("Filter list is too large");
-            output.write(buffer, 0, count);
-        }
-    }
-
-    private void saveFilterList(int index, String contents) throws IOException {
-        File destination = new File(getFilesDir(), FILTER_LIST_FILES[index]);
-        File temporary = new File(getFilesDir(), FILTER_LIST_FILES[index] + ".tmp");
-        byte[] bytes = contents.getBytes(StandardCharsets.UTF_8);
-        if (bytes.length > MAX_FILTER_LIST_BYTES) throw new IOException("Filter list is too large");
-        try (FileOutputStream output = new FileOutputStream(temporary)) {
-            output.write(bytes);
-        }
-        if (!temporary.renameTo(destination)) {
-            temporary.delete();
-            throw new IOException("Could not replace cached filter list");
-        }
-    }
-
-    // The running engine stays active until the new one is built, so a failed
-    // update never leaves the page without the full lists. The lock covers the
-    // begin/add/finish sequence because the native pending set is process-wide.
-    private void installFilterLists(String[] lists) {
-        boolean hasList = false;
-        for (String list : lists) hasList |= list != null && !list.isEmpty();
-        if (!hasList) return;
-        synchronized (ENGINE_LOCK) {
-            if (!adBlockEnabled || engineOwner != ENGINE_OWNER.get()) return;
-            nativeBeginFilterLists();
-            for (String list : lists) {
-                if (list != null && !list.isEmpty() && !nativeAddFilterList(list)) return;
-            }
-            if (adBlockEnabled && engineOwner == ENGINE_OWNER.get()
-                    && nativeFinishFilterLists()) {
-                nativeFiltersComplete = lists[0] != null && lists[1] != null;
-                nativeFiltersReady = true;
-            }
-        }
-    }
-
-    private void clearEngineIfOwner() {
-        synchronized (ENGINE_LOCK) {
-            if (engineOwner != ENGINE_OWNER.get()) return;
-            nativeClearFilters();
-        }
     }
 
     private void showConfirmation(String title, String message, String acceptLabel,
@@ -1663,7 +1945,8 @@ public class MainActivity extends Activity {
                 getString(R.string.action_download), getString(R.string.action_cancel), () -> {
                     pendingDownloadUrl = url;
                     pendingDownloadUserAgent = userAgent;
-                    pendingDownloadReferer = webView == null ? null : webView.getUrl();
+                    pendingDownloadReferer = webView == null ? null
+                            : NavigationPolicy.downloadReferer(webView.getUrl(), url);
                     pendingDownloadName = fileName;
                     pendingDownloadMime = mimeType;
                     startConfirmedDownload();
@@ -1718,6 +2001,7 @@ public class MainActivity extends Activity {
             return;
         }
         if (menuPanel != null) return;
+        stopPointer();
         menuPanel = new FrameLayout(this);
         menuPanel.setBackgroundColor(0x99000000);
         menuPanel.setOnClickListener(view -> closeMenu());
@@ -1834,6 +2118,8 @@ public class MainActivity extends Activity {
             closeMenu();
         } else if (fullscreenView != null) {
             hideFullscreen();
+        } else if (findBarShown()) {
+            closeFindBar();
         } else if (homePage) {
             finish();
         } else if (webView != null && webView.canGoBack()) {
@@ -1853,19 +2139,16 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onSaveInstanceState(Bundle state) {
-        state.putString("url", currentUrl);
-        state.putBoolean("homePage", homePage);
+        state.putString("url", heldUrl != null ? heldUrl : currentUrl);
+        state.putBoolean("homePage", homePage && heldUrl == null);
+        state.putInt("scrollY", webView == null ? 0 : webView.getScrollY());
         super.onSaveInstanceState(state);
     }
 
     @Override
     protected void onPause() {
-        analogX = 0;
-        analogY = 0;
-        digitalX = 0;
-        digitalY = 0;
-        if (cursorView != null) cursorView.removeCallbacks(cursorTick);
-        cursorTickScheduled = false;
+        resumed = false;
+        stopPointer();
         if (webView != null) {
             webView.onPause();
             webView.pauseTimers();
@@ -1873,9 +2156,47 @@ public class MainActivity extends Activity {
         super.onPause();
     }
 
+    // A held direction would keep a callback per frame, and scroll the page, after the menu,
+    // the home screen or another window took the keys that would have released it.
+    private void stopPointer() {
+        analogX = 0;
+        analogY = 0;
+        digitalX = 0;
+        digitalY = 0;
+        if (cursorView != null) cursorView.removeCallbacks(cursorTick);
+        cursorTickScheduled = false;
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (!hasFocus) stopPointer();
+    }
+
+    // The manifest keeps the Activity, and the page, alive when a remote, keyboard or display
+    // mode changes; only the native layout that depends on the screen is rebuilt.
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration configuration) {
+        super.onConfigurationChanged(configuration);
+        int night = configuration.uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        if (night != nightMode && !tvMode) {
+            recreate();
+            return;
+        }
+        nightMode = night;
+        applyOverscan();
+        if (homePage && focusedEditor() == null) showHomePage();
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
+        resumed = true;
+        if (heldUrl != null) {
+            root.removeCallbacks(releaseHeldNavigation);
+            root.postDelayed(releaseHeldNavigation, FILTER_WAIT_MS);
+            loadHeldNavigation(false);
+        }
         if (webView != null) {
             webView.resumeTimers();
             webView.onResume();
@@ -1892,7 +2213,8 @@ public class MainActivity extends Activity {
         loadingLine.removeCallbacks(hideLoading);
         closeMenu();
         hideFullscreen();
-        clearWebViewCache();
+        root.removeCallbacks(releaseHeldNavigation);
+        discardPopupProbe();
         if (webView != null) {
             if (webView.getParent() instanceof ViewGroup) {
                 ((ViewGroup) webView.getParent()).removeView(webView);
@@ -1902,15 +2224,10 @@ public class MainActivity extends Activity {
             webView.destroy();
             webView = null;
         }
-        adBlockEnabled = false;
-        nativeFiltersReady = false;
-        if (Build.VERSION.SDK_INT >= 24) {
-            if (engineOwner == ENGINE_OWNER.get()) {
-                ServiceWorkerController.getInstance().setServiceWorkerClient(null);
-            }
+        if (Build.VERSION.SDK_INT >= 24 && filterEngine.isNewest()) {
+            ServiceWorkerController.getInstance().setServiceWorkerClient(null);
         }
-        adBlockExecutor.execute(this::clearEngineIfOwner);
-        adBlockExecutor.shutdown();
+        filterEngine.close();
         super.onDestroy();
     }
 }

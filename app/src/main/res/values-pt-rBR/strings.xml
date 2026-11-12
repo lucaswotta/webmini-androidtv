@@ -15,6 +15,7 @@
     <string name="action_continue">Continuar</string>
     <string name="action_cancel">Cancelar</string>
     <string name="navigation_blocked">Navegação bloqueada</string>
+    <string name="navigation_ad_blocked">Redirecionamento para anúncio bloqueado.</string>
     <string name="page_stopped">A página parou. Digite o endereço para recarregar.</string>
     <string name="popup_block_enabled">Bloquear pop-ups: ligado</string>
     <string name="popup_block_disabled">Bloquear pop-ups: desligado</string>
@@ -35,7 +36,7 @@
     <string name="download_http_warning">\n\nA conexão não é criptografada.</string>
     <string name="download_details">%1$s\n%2$s\n%3$s%4$s\n\nO arquivo será salvo em Downloads e não será aberto automaticamente.</string>
     <string name="action_download">Baixar</string>
-    <string name="download_description">Download solicitado no WebMini</string>
+    <string name="download_description">Download solicitado no OnePage</string>
     <string name="download_started">Download iniciado</string>
     <string name="download_permission_denied">Permissão negada; download cancelado</string>
     <string name="favorites_full">Limite de %d favoritos. Escolha qual substituir.</string>
@@ -65,4 +66,21 @@
     <string name="desktop_site_on">Site para computador: ligado</string>
     <string name="desktop_site_off">Site para computador: desligado</string>
     <string name="text_size">Tamanho do texto: %1$d%%</string>
+    <string name="filter_preparing">Preparando o bloqueio de anúncios…</string>
+    <string name="filter_not_ready">O bloqueio de anúncios ainda está carregando. Esta página tem bloqueio reduzido.</string>
+    <string name="favorite_move_earlier">Mover para antes</string>
+    <string name="favorite_move_later">Mover para depois</string>
+    <string name="favorite_remove">Remover</string>
+    <string name="screen_margin">Margem da tela: %1$d%%</string>
+    <string name="webview_old">O WebView do sistema está na versão %1$d. Atualize o Android System WebView para o bloqueio completo de anúncios.</string>
+    <string name="menu_find">Localizar na página</string>
+    <string name="find_previous">Resultado anterior</string>
+    <string name="find_next">Próximo resultado</string>
+    <string name="find_close">Fechar localizar na página</string>
+    <string name="menu_go_to">Ir para</string>
+    <string name="go_top">Topo</string>
+    <string name="go_screen_up">Uma tela acima</string>
+    <string name="go_screen_down">Uma tela abaixo</string>
+    <string name="go_bottom">Fim</string>
+    <string name="popup_form_blocked">Um formulário enviado para uma nova janela foi bloqueado.</string>
 </resources>

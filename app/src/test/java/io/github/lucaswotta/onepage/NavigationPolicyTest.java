@@ -1,4 +1,4 @@
-package io.github.lucaswotta.webmini;
+package io.github.lucaswotta.onepage;
 
 import org.junit.Test;
 
@@ -91,5 +91,50 @@ public class NavigationPolicyTest {
         assertEquals("http://localhost:8080", NavigationPolicy.addressToUrl("localhost:8080", search));
         assertEquals("http://192.168.0.10:8765/x", NavigationPolicy.addressToUrl("192.168.0.10:8765/x", search));
         assertEquals("https://example.com/path?q=1", NavigationPolicy.addressToUrl("example.com/path?q=1", search));
+    }
+
+    @Test
+    public void treatsSubdomainsAndSharedParentsAsTheSameSite() {
+        assertFalse(NavigationPolicy.isCrossSite("https://accounts.google.com/signin",
+                "https://mail.google.com/"));
+        assertFalse(NavigationPolicy.isCrossSite("https://example.com/", "https://www.example.com/a"));
+        assertFalse(NavigationPolicy.isCrossSite("https://news.example.com/", "http://EXAMPLE.COM./"));
+        assertFalse(NavigationPolicy.isCrossSite("https://example.com/", "https://example.com:8443/"));
+        assertFalse(NavigationPolicy.isCrossSite("https://192.168.0.10/", "http://192.168.0.10:8080/"));
+    }
+
+    @Test
+    public void detectsNavigationToAnotherSite() {
+        assertTrue(NavigationPolicy.isCrossSite("https://example.com/article",
+                "https://ad.doubleclick.net/click"));
+        assertTrue(NavigationPolicy.isCrossSite("https://www.example.com/", "https://example.org/"));
+        assertTrue(NavigationPolicy.isCrossSite("https://192.168.0.10/", "https://10.0.0.10/"));
+        assertTrue(NavigationPolicy.isCrossSite("https://[::1]/", "https://example.com/"));
+    }
+
+    @Test
+    public void neverReportsCrossSiteWhenAnAddressIsNotWeb() {
+        assertFalse(NavigationPolicy.isCrossSite("about:blank", "https://doubleclick.net/"));
+        assertFalse(NavigationPolicy.isCrossSite(null, "https://doubleclick.net/"));
+        assertFalse(NavigationPolicy.isCrossSite("https://example.com/", "intent://x#Intent;end"));
+    }
+
+    @Test
+    public void downloadRefererFollowsStrictOriginWhenCrossOrigin() {
+        assertEquals("https://a.example/files?id=7",
+                NavigationPolicy.downloadReferer("https://a.example/files?id=7#top",
+                        "https://a.example/get/file.zip"));
+        assertEquals("https://a.example/",
+                NavigationPolicy.downloadReferer("https://a.example/files?id=7",
+                        "https://cdn.example/file.zip"));
+        assertNull(NavigationPolicy.downloadReferer("https://a.example/files",
+                "http://a.example/file.zip"));
+        assertEquals("http://a.example/",
+                NavigationPolicy.downloadReferer("http://a.example/files",
+                        "https://cdn.example/file.zip"));
+        assertNull(NavigationPolicy.downloadReferer("about:blank", "https://a.example/file.zip"));
+        assertNull(NavigationPolicy.downloadReferer(null, "https://a.example/file.zip"));
+        assertNull(NavigationPolicy.downloadReferer("https://user:pw@a.example/",
+                "https://a.example/file.zip"));
     }
 }

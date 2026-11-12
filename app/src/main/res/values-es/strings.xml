@@ -15,6 +15,7 @@
     <string name="action_continue">Continuar</string>
     <string name="action_cancel">Cancelar</string>
     <string name="navigation_blocked">Navegación bloqueada</string>
+    <string name="navigation_ad_blocked">Se bloqueó una redirección a un anuncio.</string>
     <string name="page_stopped">La página se detuvo. Escribe su URL para volver a cargarla.</string>
     <string name="popup_block_enabled">Bloquear ventanas emergentes: activado</string>
     <string name="popup_block_disabled">Bloquear ventanas emergentes: desactivado</string>
@@ -35,7 +36,7 @@
     <string name="download_http_warning">\n\nEsta conexión no está cifrada.</string>
     <string name="download_details">%1$s\n%2$s\n%3$s%4$s\n\nEl archivo se guardará en Descargas y no se abrirá automáticamente.</string>
     <string name="action_download">Descargar</string>
-    <string name="download_description">Descarga solicitada en WebMini</string>
+    <string name="download_description">Descarga solicitada en OnePage</string>
     <string name="download_started">Descarga iniciada</string>
     <string name="download_permission_denied">Permiso denegado; descarga cancelada</string>
     <string name="favorites_full">Máximo de %d favoritos. Elige cuál reemplazar.</string>
@@ -65,4 +66,21 @@
     <string name="desktop_site_on">Sitio de escritorio: activado</string>
     <string name="desktop_site_off">Sitio de escritorio: desactivado</string>
     <string name="text_size">Tamaño del texto: %1$d%%</string>
+    <string name="filter_preparing">Preparando el bloqueo de anuncios…</string>
+    <string name="filter_not_ready">El bloqueo de anuncios aún se está cargando. Esta página tiene bloqueo reducido.</string>
+    <string name="favorite_move_earlier">Mover antes</string>
+    <string name="favorite_move_later">Mover después</string>
+    <string name="favorite_remove">Quitar</string>
+    <string name="screen_margin">Margen de pantalla: %1$d%%</string>
+    <string name="webview_old">El WebView del sistema está en la versión %1$d. Actualiza Android System WebView para el bloqueo completo de anuncios.</string>
+    <string name="menu_find">Buscar en la página</string>
+    <string name="find_previous">Coincidencia anterior</string>
+    <string name="find_next">Coincidencia siguiente</string>
+    <string name="find_close">Cerrar búsqueda en la página</string>
+    <string name="menu_go_to">Ir a</string>
+    <string name="go_top">Principio</string>
+    <string name="go_screen_up">Una pantalla arriba</string>
+    <string name="go_screen_down">Una pantalla abajo</string>
+    <string name="go_bottom">Final</string>
+    <string name="popup_form_blocked">Se bloqueó un formulario enviado a una ventana nueva.</string>
 </resources>
