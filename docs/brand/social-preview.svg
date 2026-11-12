@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title description">
+  <title id="title">OnePage</title>
+  <desc id="description">Browse the web with your TV remote. One tab, built-in ad blocking, no account.</desc>
+  <rect width="1280" height="640" fill="#10110F"/>
+  <g transform="translate(72 185) scale(.85)"><path fill="#F2BB66" d="M32 20.4 H185.6 L224 58.8 V231.6 H70.4 L32 193.2 Z M89.6 87.6 L89.6 145.2 L128 106.8 V193.2 H166.4 V49.2 H128 Z"/></g>
+  <text x="340" y="280" fill="#F4F0E6" font-family="Arial,sans-serif" font-size="96" font-weight="700">OnePage</text>
+  <text x="344" y="347" fill="#F4F0E6" font-family="Arial,sans-serif" font-size="32">Browse the web with your TV remote.</text>
+  <text x="344" y="398" fill="#B9B9AC" font-family="Arial,sans-serif" font-size="22">One tab · Built-in ad blocking · No account</text>
+  <text x="344" y="510" fill="#F2BB66" font-family="Arial,sans-serif" font-size="20">github.com/lucaswotta/onepage</text>
+</svg>

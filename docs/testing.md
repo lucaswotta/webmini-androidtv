@@ -19,6 +19,7 @@ Run on a TV device, with the debug or release build.
 
 | Area | Check | Expected |
 | --- | --- | --- |
+| Page defaults | Open an HTML document with no CSS colors | Default black text is readable on the default white page background |
 | Home | Open the app, press D-pad down | Focus moves to the search field, then to the favorites |
 | Home | Save 5 favorites | The star opens the stored list to replace one; the grid keeps 4 and fits without scrolling |
 | Menu | Menu, Remove a favorite | Stored favorites are listed; the removed one leaves the home screen |
@@ -75,7 +76,7 @@ Run on a TV device, with the debug or release build.
 
 Android 6.0 (API 23) is the minimum supported version and has not been run on a device. Device reports go to the [device report form](https://github.com/lucaswotta/onepage/issues/new?template=device-report.yml).
 
-See [0.4.0 validation](validation-0.4.0.md) for the dated release checks and limits.
+See [0.4.0 validation](validation-0.4.0.md) and [0.4.1 validation](validation-0.4.1.md) for the dated release checks and limits.
 
 ## Memory and storage
 

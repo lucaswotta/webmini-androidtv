@@ -1,18 +1,15 @@
-# WebMini visual system
+# OnePage visual system
 
-## Fold mark
+## Page one mark
 
-Fold is an open W made from a folded ribbon. Its amber rising terminal completes
-the letter and points along the same ascending direction as the cursor edge.
-The accent is part of the silhouette. There is no detached punctuation or tile
-behind the home mark. `webmini-mark.svg` is the transparent master for dark
-backgrounds; Android launcher, banner and home paths share its 96-unit geometry.
+The mark is an amber page plate with cut corners and a negative-space 1.
+`onepage-mark.svg` is the 256-unit master for dark backgrounds;
+`onepage-lockup.svg` combines the mark and outlined wordmark in black for
+light backgrounds. Android launcher, banner and home mark use the same geometry.
 
-The home mark uses theme text and accent colors, including dark ink and brown
-amber on light phones. Launcher assets retain ivory and amber on ink. The
-adaptive foreground fits the central 66-unit safe area; the legacy launcher is
-a vector, supported by minimum API 23. Banner lettering is outlined geometry.
-No font or bitmap assets are required.
+The native vector's inner contour opposes the outer contour. Android API 23
+uses nonzero winding and has no `fillType`, so the 1 remains a cutout without
+an API-specific resource. The home mark takes the theme accent color.
 
 ## Palette and contrast
 
@@ -64,7 +61,7 @@ its amber stripe is supplementary. Separators are decorative.
 | --- | --- | --- |
 | Home title | sans-serif-condensed bold | 40 sp; compact 30 sp / +0.035 em |
 | Home search | sans regular | TV 20 sp; phone 18 sp |
-| Favorite host | sans-serif-medium | TV 18 sp; phone 16 sp |
+| Favorite title / host fallback | sans-serif-medium | TV 18 sp; phone 16 sp |
 | Favorite index / suffix | sans regular | same size as host |
 | Favorites heading | sans bold | 16 sp / +0.06 em |
 | TV menu label / value | sans / sans-serif-medium | 18 / 16 sp |
@@ -81,12 +78,11 @@ Search height is 64 dp, or 56 dp in compact TV mode. The field has a persistent
 are independent 52 dp targets with 8 dp gaps. This separates their silhouettes
 and makes the input the largest action on the page.
 
-TV favorite indices run 01–04 in reading order. The first host label is primary;
-`www.` and the dotted suffix use secondary text. This is display styling, not
-public-suffix parsing or a change to the destination. No network favicon is
-requested. On phones the index is omitted and tile padding drops from 18 to
-12 dp to reserve width for the host. Hosts remain single-line and ellipsized.
-The full host remains the accessible name.
+TV favorite indices run 01–04 in reading order. A saved title is the primary
+label; favorites without a title show the host. Host fragments such as `www.`
+and the dotted suffix use secondary text. No network favicon is requested.
+Phone tiles omit the index and reduce padding to reserve space for the label.
+The full title or fallback host remains the accessible name.
 
 Favorite rows are 64 dp, or 56 dp in compact TV mode, including 4 dp tile margins.
 Targets are 56 / 48 dp high. The two-column grid and four-item limit remain.
@@ -112,56 +108,26 @@ TV menus use a bordered opaque panel, 48 dp rows and inset 1 dp separators.
 Six entries occupy 317 dp including 24 dp panel padding and five separators.
 An entry containing `: ` is split at its last separator for presentation: label
 at the start, original value at the end in amber. Focus fills the entire row.
-The complete original entry is its accessible name; selection callbacks and
-option strings are unchanged. Entries without that separator remain intact.
+The complete menu entry is its accessible name. Entries without that separator
+remain intact.
 Phone choices retain the native themed dialog.
 
 The loading line and cursor accent are both continuous, square-ended 2 dp
 strokes in brand amber on TV. The pointer retains ivory fill and an ink outline;
-its amber edge replaces the filled inset. Loading timing and navigation behavior
-are unchanged. Phone loading uses the theme accent.
+its amber edge follows the pointer shape. Phone loading uses the theme accent.
 
-## Resource budget
+## Resources and download actions
 
-Isolated measurements use SDK build-tools 36.0.0, Android 36, identical manifest
-and link options. The temporary manifest only adds the package supplied by AGP.
-Documentation is outside packaged resources.
+Launcher, banner, home mark and pointer graphics are vector resources. No
+packaged font is required. Memory and APK measurements belong in the dated
+validation records linked from [`testing.md`](../testing.md).
 
-| Measurement | HEAD baseline | Round 1 | Round 2 |
-| --- | ---: | ---: | ---: |
-| Source files under `res` | 17 | 24 | 27 |
-| Source resource bytes | 60,656 | 25,377 | 27,432 |
-| Standalone linked resource APK bytes | 67,677 | 37,433 | 40,574 |
+The README download actions use local SVG buttons in English and Brazilian
+Portuguese. Amber identifies the universal APK, which avoids architecture
+selection; the dark button links to the smaller 32-bit TV build. Both point to fixed asset names under
+`releases/latest/download/`, so publishing a new release keeps the links valid.
+Every supported ABI and the checksum file also have plain text download links.
 
-Round 2 adds 2,055 source bytes and 3,141 linked bytes over round 1. The linked
-artifact is 27,103 bytes smaller than HEAD. This is a resource comparison,
-not the application APK size. The +60 KB application budget requires a release
-APK comparison including compiled Java. There are no new dependencies, fonts,
-bitmaps, blur effects or animations.
-
-## Round 2 verification — 2026-11-07
-
-Input evidence: `d1.png` through `d4.png`, supplied from the 1280 × 720 TV test.
-Decisions: center the whole home group; make the amber terminal structural;
-use condensed bold system type; add TV indices and secondary host fragments;
-separate search actions; align existing menu values without changing options;
-raise disabled-star contrast in both light and dark themes.
-
-Validation: 27 resource XML files parsed. `aapt2 compile` and `aapt2 link` passed.
-Isolated Java compilation passed against Android 36 using the generated R class
-and all three application source files. Its 19 deprecation warnings concern
-legacy insets, resource color access, WebView URL handling, URL construction and
-back handling; these APIs are retained within this visual-only scope.
-`git diff --check` passed. Gradle and device runtime tests were not run.
-
-Visual checks remaining: home with zero and four favorites at 720p; all field,
-voice, submit, favorite and menu focus/pressed states; star on home and saved /
-unsaved pages; long hosts; six menu entries in Portuguese and Spanish; pointer
-and loading line on light/dark pages; launcher banner and adaptive icon; phone
-light/night with keyboard and enlarged text. Menu rows use focusable containers
-with child text inheriting their state: verify D-pad activation and TalkBack.
-
-Tuning points: `showHomePage()` and `showChoices()` in MainActivity;
-`home_search.xml`, `tv_button.xml` and `tv_button_*.xml` for states;
-`values*/colors.xml` and `styles.xml` for themes. Keep SVG and launcher/home
-mark paths synchronized.
+Maintain the mark geometry across the SVG and Android vector resources.
+Interaction colors live in `values*/colors.xml` and the `tv_button*` resources;
+home and menu layout are built in `MainActivity.java`.
