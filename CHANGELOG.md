@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.2 (2026-11-11)
+
+### Changed
+
+- Release APKs are built, signed, verified and published by GitHub Actions when a version tag is pushed.
+- Re-running a release preserves existing published APKs and checksums.
+
 ## 0.4.1 (2026-11-11)
 
 ### Fixed

@@ -121,8 +121,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd "$GITHUB_WORKSPACE/app/build/outputs/apk/release" || exit 1
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" OnePage-*.apk SHA256SUMS.txt --clobber
+          existing=$(gh api graphql -F owner="${GITHUB_REPOSITORY%/*}" \
+            -F name="${GITHUB_REPOSITORY#*/}" -F tag="$GITHUB_REF_NAME" \
+            -f query='query($owner: String!, $name: String!, $tag: String!) { repository(owner: $owner, name: $name) { release(tagName: $tag) { id } } }' \
+            --jq '.data.repository.release.id // empty')
+          if [ -n "$existing" ]; then
+            echo "Release $GITHUB_REF_NAME already exists; preserving its files."
           else
-            gh release create "$GITHUB_REF_NAME" OnePage-*.apk SHA256SUMS.txt --verify-tag --generate-notes
+            gh release create "$GITHUB_REF_NAME" OnePage-*.apk SHA256SUMS.txt --verify-tag \
+              --title "OnePage ${GITHUB_REF_NAME#v}" --generate-notes
           fi
