@@ -30,7 +30,7 @@ jobs:
           java-version: 17
       - name: Install Android NDK
         run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018" "platforms;android-36" > /dev/null
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018" "platforms;android-36" "build-tools;36.0.0" > /dev/null
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
       - name: Install Rust toolchain and cargo-ndk
         run: |
@@ -103,11 +103,13 @@ jobs:
             echo "output-metadata.json does not carry versionName ${RELEASE_TAG#v}"
             exit 1
           fi
-          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
-          if [ -z "$apksigner" ]; then
-            echo "apksigner not found under $ANDROID_HOME/build-tools"
+          apksigner="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          if [ ! -x "$apksigner" ]; then
+            echo "apksigner not executable: $apksigner"
             exit 1
           fi
+          echo "Verifying with $apksigner"
+          "$apksigner" version
           expected=$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ':' | tr '[:lower:]' '[:upper:]')
           for apk in app-*.apk; do
             report=$("$apksigner" verify --print-certs "$apk")
@@ -115,6 +117,7 @@ jobs:
                 | sed -n 's/^Signer.* certificate SHA-256 digest: //p' \
                 | tr -d ':' | tr '[:lower:]' '[:upper:]' | sort -u)
             if [ -z "$actual" ] || [ "$actual" != "$expected" ]; then
+              printf '%s\n' "$report"
               echo "$apk is not signed with the published certificate: $actual"
               exit 1
             fi
