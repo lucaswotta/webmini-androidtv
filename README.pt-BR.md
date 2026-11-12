@@ -4,10 +4,10 @@
 
 # OnePage
 
-### Navegue na TV com o controle remoto.
+### Navegue na sua Android TV.
 
-Uma aba, bloqueio de anúncios integrado e um ponteiro que você move pelo direcional.
-Abra seus sites favoritos na tela grande, sem mouse e sem cadastro.
+Feito para televisores, TV boxes e sticks com Android TV.
+Uma aba, bloqueio de anúncios e navegação pensada para o controle remoto.
 
 <p>
   <a href="https://github.com/lucaswotta/onepage/releases/latest/download/OnePage-universal.apk"><img src="docs/brand/download-universal-pt-br.svg" alt="Baixar o APK universal" width="300" height="76"></a>
@@ -16,13 +16,13 @@ Abra seus sites favoritos na tela grande, sem mouse e sem cadastro.
 
 Android 6.0+ · Gratuito e de código aberto · [English](README.md)
 
-[Instalação](#instalação) · [Recursos](#feito-para-a-tela-grande) · [Última versão](https://github.com/lucaswotta/onepage/releases/latest)
+[Instalação](#instalação) · [Recursos](#feito-para-android-tv) · [Última versão](https://github.com/lucaswotta/onepage/releases/latest)
 
 <img src="docs/images/hero.png" alt="OnePage na Wikipédia em uma Android TV, com ponteiro controlado pelo controle remoto" width="900">
 
 </div>
 
-## Feito para a tela grande
+## Feito para Android TV
 
 - Navegue pelo controle. Mova o ponteiro com o direcional, clique com OK e role a página pelas bordas da tela.
 - Abra sites com menos interrupções. Bloqueie anúncios e rastreadores, confirme pop-ups e continue navegando em uma aba.
@@ -35,13 +35,35 @@ Android 6.0+ · Gratuito e de código aberto · [English](README.md)
 | --- | --- |
 | ![Início do OnePage com pesquisa e favoritos](docs/images/home.png) | ![Menu de opções do OnePage](docs/images/menu.png) |
 
-A interface está disponível em português do Brasil, inglês e espanhol. O app também funciona em celulares e tablets Android.
+A interface está disponível em português do Brasil, inglês e espanhol.
 
 ## Instalação
 
-1. Baixe um APK abaixo. Se não souber qual escolher, use o universal.
-2. Abra o arquivo na Android TV e permita a instalação pelo app que você usou para baixá-lo.
-3. Inicie o OnePage e digite um site ou faça uma pesquisa na tela inicial.
+Escolha como instalar o OnePage na sua Android TV.
+
+<table>
+<tr>
+<td align="center" valign="top" width="50%">
+<p><a href="https://www.aftvnews.com/downloader/"><img src="https://play-lh.googleusercontent.com/_zuxP30plNbEBOOre6Q4rVwGQslOX6NCsefA8tPxJFsFt2XLO35yK2YVaPqmFl0oGVnO9FZCJ6b2lhrSk3a0KA=s0-br30" alt="Downloader by AFTVnews" width="56" height="56"></a></p>
+<h3>Downloader</h3>
+<p>Abra o Downloader na sua TV e digite este código:</p>
+<pre><code>9954974</code></pre>
+<p><a href="https://go.aftvnews.com/9954974">Abrir o link de download</a></p>
+</td>
+<td align="center" valign="top" width="50%">
+<p><a href="https://obtainium.imranr.dev/"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/icon.svg" alt="Obtainium" width="56" height="56"></a></p>
+<h3>Obtainium</h3>
+<p>Instale o OnePage e acompanhe as novas versões pelo GitHub.</p>
+<p><a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/lucaswotta/onepage">Adicionar OnePage ao Obtainium</a></p>
+<p><a href="https://obtainium.imranr.dev/">Instalar o Obtainium</a></p>
+</td>
+</tr>
+</table>
+
+Depois de baixar, abra o APK e permita a instalação pelo app usado no download. O OnePage aparece no launcher da sua TV.
+
+<details>
+<summary>APKs diretos e outras arquiteturas</summary>
 
 | Download | Aparelho |
 | --- | --- |
@@ -50,15 +72,7 @@ A interface está disponível em português do Brasil, inglês e espanhol. O app
 | [APK ARM de 64 bits](https://github.com/lucaswotta/onepage/releases/latest/download/OnePage-arm64-v8a.apk) | Aparelhos com Android de 64 bits |
 | [APK x86_64](https://github.com/lucaswotta/onepage/releases/latest/download/OnePage-x86_64.apk) | Waydroid, emuladores e aparelhos x86_64 |
 
-### Baixe direto na TV
-
-Abra o [Downloader by AFTVnews](https://play.google.com/store/apps/details?id=com.esaba.downloader) e digite:
-
-```text
-https://github.com/lucaswotta/onepage/releases/latest/download/OnePage-armeabi-v7a.apk
-```
-
-Para receber avisos de atualização automaticamente, [adicione o OnePage ao Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/lucaswotta/onepage).
+</details>
 
 Veio do WebMini? O OnePage é instalado como outro app. Adicione seus favoritos no OnePage antes de remover o WebMini.
 

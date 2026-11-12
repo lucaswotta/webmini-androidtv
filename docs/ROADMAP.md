@@ -25,8 +25,8 @@ that work like in any standard browser.
 - `Sec-Fetch-Dest` is the first source for the request type. Extension
   guessing is not moved ahead of it: a `fetch("/a.js")` would be mislabeled.
 - No remote telemetry; any crash report stays on the device.
-- Version 0.4.0 is the only release kept public; older releases are removed
-  when it ships (irreversible, confirm before doing it).
+- Published releases keep their version tags and APKs. The stable download
+  links resolve to the latest release.
 
 ## Done in 0.4.0
 
@@ -95,6 +95,21 @@ demand, scripts off, media plays only on user action).
 
 ### Distribution
 
-- Releases from CI with `SHA256SUMS.txt` (#15).
 - F-Droid and Amazon Appstore (#16); OpenShelf once the repo has 10 stars.
 - Privacy policy, licenses screen, TalkBack and contrast pass.
+
+## Tracked work
+
+Implementation and validation are tracked in the individual issues below.
+
+| Work | Issue |
+| --- | --- |
+| Cosmetic filtering of blocked ad slots | [#4](https://github.com/lucaswotta/onepage/issues/4) |
+| Low-memory measurements and native size/speed comparisons | [#17](https://github.com/lucaswotta/onepage/issues/17) |
+| F-Droid and Amazon Appstore distribution | [#16](https://github.com/lucaswotta/onepage/issues/16) |
+| Instrumented WebView tests and the minimum-API/arm64 matrix | [#24](https://github.com/lucaswotta/onepage/issues/24) |
+| YouTube video ad filtering prototype | [#26](https://github.com/lucaswotta/onepage/issues/26) |
+| Private browsing with isolated local storage | [#27](https://github.com/lucaswotta/onepage/issues/27) |
+| Saved per-site filtering exceptions | [#28](https://github.com/lucaswotta/onepage/issues/28) |
+| Interception coverage on five representative pages | [#29](https://github.com/lucaswotta/onepage/issues/29) |
+| Regional filter lists beyond Portuguese and Spanish | [#30](https://github.com/lucaswotta/onepage/issues/30) |
