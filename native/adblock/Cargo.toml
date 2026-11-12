@@ -8,7 +8,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 adblock = { version = "=0.13.3", default-features = false, features = ["embedded-domain-resolver", "full-regex-handling"] }
-jni = "0.21.1"
+jni = "0.22.4"
 
 [profile.release]
 opt-level = "s"
