@@ -3,6 +3,12 @@ name: Release
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to build and publish
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -12,8 +18,12 @@ jobs:
     # Releases are published locally unless the repository variable is set.
     if: ${{ vars.WEBMINI_CI_RELEASE == 'true' }}
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ inputs.tag || github.ref }}
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
@@ -31,8 +41,8 @@ jobs:
       - name: Check tag against versionName
         run: |
           version=$(sed -n "s/^[[:space:]]*versionName '\(.*\)'.*/\1/p" app/build.gradle)
-          if [ -z "$version" ] || [ "$version" != "${GITHUB_REF_NAME#v}" ]; then
-            echo "tag $GITHUB_REF_NAME does not match versionName $version"
+          if [ -z "$version" ] || [ "$version" != "${RELEASE_TAG#v}" ]; then
+            echo "tag $RELEASE_TAG does not match versionName $version"
             exit 1
           fi
       - name: Unpack release keystore
@@ -89,8 +99,8 @@ jobs:
               exit 1
             fi
           done
-          if ! grep -q "\"versionName\": \"${GITHUB_REF_NAME#v}\"" output-metadata.json; then
-            echo "output-metadata.json does not carry versionName ${GITHUB_REF_NAME#v}"
+          if ! grep -q "\"versionName\": \"${RELEASE_TAG#v}\"" output-metadata.json; then
+            echo "output-metadata.json does not carry versionName ${RELEASE_TAG#v}"
             exit 1
           fi
           apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
@@ -100,9 +110,10 @@ jobs:
           fi
           expected=$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ':' | tr '[:lower:]' '[:upper:]')
           for apk in app-*.apk; do
-            actual=$("$apksigner" verify --print-certs "$apk" \
-                | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1)
-            actual=$(printf '%s' "$actual" | tr -d ':' | tr '[:lower:]' '[:upper:]')
+            report=$("$apksigner" verify --print-certs "$apk")
+            actual=$(printf '%s\n' "$report" \
+                | sed -n 's/^Signer.* certificate SHA-256 digest: //p' \
+                | tr -d ':' | tr '[:lower:]' '[:upper:]' | sort -u)
             if [ -z "$actual" ] || [ "$actual" != "$expected" ]; then
               echo "$apk is not signed with the published certificate: $actual"
               exit 1
@@ -122,12 +133,12 @@ jobs:
         run: |
           cd "$GITHUB_WORKSPACE/app/build/outputs/apk/release" || exit 1
           existing=$(gh api graphql -F owner="${GITHUB_REPOSITORY%/*}" \
-            -F name="${GITHUB_REPOSITORY#*/}" -F tag="$GITHUB_REF_NAME" \
+            -F name="${GITHUB_REPOSITORY#*/}" -F tag="$RELEASE_TAG" \
             -f query='query($owner: String!, $name: String!, $tag: String!) { repository(owner: $owner, name: $name) { release(tagName: $tag) { id } } }' \
             --jq '.data.repository.release.id // empty')
           if [ -n "$existing" ]; then
-            echo "Release $GITHUB_REF_NAME already exists; preserving its files."
+            echo "Release $RELEASE_TAG already exists; preserving its files."
           else
-            gh release create "$GITHUB_REF_NAME" OnePage-*.apk SHA256SUMS.txt --verify-tag \
-              --title "OnePage ${GITHUB_REF_NAME#v}" --generate-notes
+            gh release create "$RELEASE_TAG" OnePage-*.apk SHA256SUMS.txt --verify-tag \
+              --title "OnePage ${RELEASE_TAG#v}" --generate-notes
           fi
